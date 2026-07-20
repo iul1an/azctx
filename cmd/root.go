@@ -52,7 +52,7 @@ It provides a fuzzy finder interface to select subscriptions and remembers your 
 	RunE: func(cmd *cobra.Command, args []string) error {
 		stateManager := state.NewViperStateManager(viper.GetViper())
 		storage := storage.FileAdapter{}
-		if err := storage.FetchDefaultPath("/.azure/azureProfile.json"); err != nil {
+		if err := storage.FetchDefaultPath("azureProfile.json"); err != nil {
 			return pkgerrors.ErrFileOperation("fetching default profile path", err)
 		}
 

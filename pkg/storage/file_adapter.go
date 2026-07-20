@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"io"
 	"os"
+	"path/filepath"
 
 	pkgerrors "github.com/riweston/aztx/pkg/errors"
 	"github.com/riweston/aztx/pkg/types"
@@ -15,13 +16,18 @@ type FileAdapter struct {
 	Path string
 }
 
-// FetchDefaultPath sets the path to the default file location.
+// FetchDefaultPath sets the path to the given file inside the Azure config
+// directory: $AZURE_CONFIG_DIR if set, otherwise ~/.azure.
 func (fa *FileAdapter) FetchDefaultPath(defaultFilename string) error {
+	if dir := os.Getenv("AZURE_CONFIG_DIR"); dir != "" {
+		fa.Path = filepath.Join(dir, defaultFilename)
+		return nil
+	}
 	home, err := os.UserHomeDir()
 	if err != nil {
 		return pkgerrors.ErrFetchingHomePath
 	}
-	fa.Path = home + defaultFilename
+	fa.Path = filepath.Join(home, ".azure", defaultFilename)
 	return nil
 }
 

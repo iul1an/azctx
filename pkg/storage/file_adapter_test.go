@@ -15,33 +15,25 @@ import (
 )
 
 func TestFileAdapter_FetchDefaultPath(t *testing.T) {
-	tests := []struct {
-		name           string
-		defaultFile    string
-		wantErrType    error
-		wantPathSuffix string
-	}{
-		{
-			name:           "valid default file",
-			defaultFile:    "/test.json",
-			wantErrType:    nil,
-			wantPathSuffix: "/test.json",
-		},
-	}
+	t.Run("defaults to ~/.azure", func(t *testing.T) {
+		t.Setenv("AZURE_CONFIG_DIR", "")
+		os.Unsetenv("AZURE_CONFIG_DIR")
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			fa := &FileAdapter{}
-			err := fa.FetchDefaultPath(tt.defaultFile)
-			if tt.wantErrType != nil {
-				assert.ErrorIs(t, err, tt.wantErrType)
-			} else {
-				assert.NoError(t, err)
-				home, _ := os.UserHomeDir()
-				assert.Equal(t, home+tt.wantPathSuffix, fa.Path)
-			}
-		})
-	}
+		fa := &FileAdapter{}
+		err := fa.FetchDefaultPath("test.json")
+		assert.NoError(t, err)
+		home, _ := os.UserHomeDir()
+		assert.Equal(t, filepath.Join(home, ".azure", "test.json"), fa.Path)
+	})
+
+	t.Run("honors AZURE_CONFIG_DIR", func(t *testing.T) {
+		t.Setenv("AZURE_CONFIG_DIR", "/some/custom/dir")
+
+		fa := &FileAdapter{}
+		err := fa.FetchDefaultPath("test.json")
+		assert.NoError(t, err)
+		assert.Equal(t, filepath.Join("/some/custom/dir", "test.json"), fa.Path)
+	})
 }
 
 func TestFileAdapter_Read(t *testing.T) {
