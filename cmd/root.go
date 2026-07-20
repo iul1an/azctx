@@ -26,6 +26,7 @@ package cmd
 
 import (
 	"errors"
+	"fmt"
 	"os"
 	"strings"
 
@@ -88,6 +89,20 @@ func pickContext(args []string) (bool, error) {
 	cfg, err := storage.ReadConfig()
 	if err != nil {
 		return false, pkgerrors.ErrReadingConfiguration(err)
+	}
+
+	// Non-interactive selection by subscription name or ID
+	if query := viper.GetString("subscription"); query != "" {
+		subManager := subscription.Manager{BaseManager: types.BaseManager{Configuration: cfg}}
+		sub, err := subManager.FindSubscriptionByNameOrID(query)
+		if err != nil {
+			return false, pkgerrors.ErrOperation(fmt.Sprintf("finding subscription %q", query), err)
+		}
+		adapter := profile.NewConfigurationAdapter(&storage, logger)
+		if err := adapter.SetContext(sub.ID); err != nil {
+			return false, pkgerrors.ErrOperation("setting context", err)
+		}
+		return true, nil
 	}
 
 	if len(args) > 0 && args[0] == "-" {
@@ -155,6 +170,7 @@ func init() {
 	cobra.OnInitialize(initConfig)
 	rootCmd.PersistentFlags().String("log-level", "info", "Set log level (debug, info, warn, error)")
 	rootCmd.PersistentFlags().Bool("by-tenant", false, "Select tenant before choosing subscription")
+	rootCmd.PersistentFlags().String("subscription", "", "Select subscription by name or ID without the interactive picker")
 	rootCmd.Flags().Bool("in-place", false, "Mutate the active Azure config dir directly instead of spawning an isolated subshell")
 
 	// Bind flags to viper and check for errors
@@ -166,6 +182,11 @@ func init() {
 	if err := viper.BindPFlag("by-tenant", rootCmd.PersistentFlags().Lookup("by-tenant")); err != nil {
 		logger := profile.NewLogger("error")
 		logger.Error("Failed to bind by-tenant flag: %v", err)
+		os.Exit(1)
+	}
+	if err := viper.BindPFlag("subscription", rootCmd.PersistentFlags().Lookup("subscription")); err != nil {
+		logger := profile.NewLogger("error")
+		logger.Error("Failed to bind subscription flag: %v", err)
 		os.Exit(1)
 	}
 	if err := viper.BindPFlag("in-place", rootCmd.Flags().Lookup("in-place")); err != nil {

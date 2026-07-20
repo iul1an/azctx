@@ -2,6 +2,7 @@ package subscription
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/google/uuid"
 	pkgerrors "github.com/riweston/aztx/pkg/errors"
@@ -56,6 +57,20 @@ func (sm *Manager) FindSubscriptionIndex() (int, error) {
 	}
 
 	return -1, pkgerrors.ErrSubscriptionNotFound
+}
+
+// FindSubscriptionByNameOrID finds a subscription by UUID or by
+// case-insensitive exact name, for non-interactive selection.
+func (sm *Manager) FindSubscriptionByNameOrID(query string) (*types.Subscription, error) {
+	if id, err := uuid.Parse(query); err == nil {
+		return sm.FindSubscriptionByID(id)
+	}
+	for _, sub := range sm.Configuration.Subscriptions {
+		if strings.EqualFold(sub.Name, query) {
+			return &sub, nil
+		}
+	}
+	return nil, pkgerrors.ErrSubscriptionNotFound
 }
 
 // FindSubscriptionByID finds a subscription by its ID

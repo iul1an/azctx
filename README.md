@@ -101,6 +101,10 @@ aztx --by-tenant
 # is propagated.
 aztx exec -- kubectl get pods
 aztx exec --by-tenant -- kubie ctx my-aks-cluster
+
+# Skip the picker entirely with --subscription (name or ID, name is
+# case-insensitive). Also works on bare aztx.
+aztx exec --subscription "My Subscription" -- kubectl get pods
 ```
 
 ### In-Place Mode
