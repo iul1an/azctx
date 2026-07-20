@@ -112,6 +112,28 @@ func (c *ConfigurationAdapter) SetContext(subscriptionID uuid.UUID) error {
 	return nil
 }
 
+// ClearContext clears the default flag on every subscription, leaving the
+// active config dir with no default subscription selected.
+func (c *ConfigurationAdapter) ClearContext() error {
+	config, err := c.storage.ReadConfig()
+	if err != nil {
+		c.logger.Error("failed to read configuration: %v", err)
+		return pkgerrors.WrapError("reading configuration", err)
+	}
+
+	for i := range config.Subscriptions {
+		config.Subscriptions[i].IsDefault = false
+	}
+
+	if err := c.storage.WriteConfig(config); err != nil {
+		c.logger.Error("failed to write configuration: %v", err)
+		return pkgerrors.WrapError("writing configuration", err)
+	}
+
+	c.logger.Success("cleared default subscription")
+	return nil
+}
+
 func (c *ConfigurationAdapter) SetPreviousContext(state state.StateManager) error {
 	if state == nil {
 		c.logger.Error("state manager is nil")

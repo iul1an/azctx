@@ -64,6 +64,17 @@ It provides a fuzzy finder interface to select subscriptions and remembers your 
 				os.Getenv("AZTX_SUBSCRIPTION"))
 		}
 
+		// Unset mode: clear the default subscription in ~/.azure, no picker,
+		// no subshell.
+		if viper.GetBool("unset") {
+			storage := storage.FileAdapter{}
+			if err := storage.FetchDefaultPath("azureProfile.json"); err != nil {
+				return pkgerrors.ErrFileOperation("fetching default profile path", err)
+			}
+			adapter := profile.NewConfigurationAdapter(&storage, profile.NewLogger(viper.GetString("log-level")))
+			return adapter.ClearContext()
+		}
+
 		// In-place mode: mutate the master ~/.azure directly, no subshell.
 		if viper.GetBool("in-place") {
 			_, err := pickContext(args)
@@ -186,6 +197,7 @@ func init() {
 	rootCmd.PersistentFlags().Bool("by-tenant", false, "Select tenant before choosing subscription")
 	rootCmd.PersistentFlags().String("subscription", "", "Select subscription by name or ID without the interactive picker")
 	rootCmd.Flags().Bool("in-place", false, "Mutate the master ~/.azure directly instead of spawning an isolated subshell")
+	rootCmd.Flags().Bool("unset", false, "Clear the default subscription in the master ~/.azure and exit")
 
 	// Bind flags to viper and check for errors
 	if err := viper.BindPFlag("log-level", rootCmd.PersistentFlags().Lookup("log-level")); err != nil {
@@ -206,6 +218,11 @@ func init() {
 	if err := viper.BindPFlag("in-place", rootCmd.Flags().Lookup("in-place")); err != nil {
 		logger := profile.NewLogger("error")
 		logger.Error("Failed to bind in-place flag: %v", err)
+		os.Exit(1)
+	}
+	if err := viper.BindPFlag("unset", rootCmd.Flags().Lookup("unset")); err != nil {
+		logger := profile.NewLogger("error")
+		logger.Error("Failed to bind unset flag: %v", err)
 		os.Exit(1)
 	}
 }

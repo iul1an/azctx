@@ -84,6 +84,10 @@ exit
 
 # Switch to previous subscription context
 aztx -
+
+# Clear the default subscription in the master ~/.azure (no picker,
+# no subshell). Refused inside an isolated shell.
+aztx --unset
 ```
 
 ### Tenant-First Selection
