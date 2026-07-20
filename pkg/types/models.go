@@ -3,6 +3,8 @@
 package types
 
 import (
+	"encoding/json"
+
 	"github.com/google/uuid"
 	"github.com/riweston/aztx/pkg/errors"
 )
@@ -13,6 +15,8 @@ type Configuration struct {
 	InstallationID uuid.UUID      `json:"installationId"`    // Unique identifier for the installation
 	Tenants        []Tenant       `json:"tenants,omitempty"` // List of available Azure tenants
 	Subscriptions  []Subscription `json:"subscriptions"`     // List of available Azure subscriptions
+
+	raw map[string]json.RawMessage // original JSON, preserved on rewrite (see raw.go)
 }
 
 // Validate checks if the configuration has valid data.
@@ -43,6 +47,8 @@ type Tenant struct {
 	ID         uuid.UUID `json:"tenantId"`             // Unique identifier for the tenant
 	Name       string    `json:"name"`                 // System-assigned tenant name
 	CustomName string    `json:"customName,omitempty"` // User-defined custom name for the tenant
+
+	raw map[string]json.RawMessage // original JSON, preserved on rewrite (see raw.go)
 }
 
 // GetID implements the IDGetter interface for Tenant
@@ -84,6 +90,8 @@ type Subscription struct {
 	ManagedByTenants []struct {
 		TenantID uuid.UUID `json:"tenantId"` // ID of the tenant managing this subscription
 	} `json:"managedByTenants"`
+
+	raw map[string]json.RawMessage // original JSON, preserved on rewrite (see raw.go)
 }
 
 // GetID implements the IDGetter interface for Subscription
