@@ -225,6 +225,8 @@ func init() {
 		logger.Error("Failed to bind unset flag: %v", err)
 		os.Exit(1)
 	}
+
+	registerCompletions()
 }
 
 // initConfig reads in config file and ENV variables if set.
