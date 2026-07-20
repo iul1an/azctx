@@ -2,8 +2,12 @@
 
 `aztx` is a command-line tool designed to streamline the management of Azure tenant and subscription contexts. It provides an intuitive fuzzy-finder interface for switching between Azure subscriptions and tenants, making it easier to work with multiple Azure environments.
 
+> [!NOTE]
+> This is a fork of [riweston/aztx](https://github.com/riweston/aztx) that makes **per-shell isolation** the default mode of operation: switching context never mutates `~/.azure`.
+
 ## Features
 
+- 🐚 **Per-shell isolated contexts** — each `aztx` invocation copies `~/.azure` to a private tempdir, sets `AZURE_CONFIG_DIR`, and drops you into a subshell; the master `~/.azure` is never touched
 - 🔍 Fuzzy search interface for finding subscriptions and tenants
 - ⚡ Quick context switching between subscriptions
 - 🔄 Easy switching to previous context (similar to `cd -`)
@@ -62,8 +66,21 @@ go install github.com/riweston/aztx
 ### Basic Subscription Switching
 
 ```sh
-# Launch interactive subscription selector
+# Pick a subscription and drop into a subshell scoped to it.
+# ~/.azure is copied to a tempdir and AZURE_CONFIG_DIR points at the copy,
+# so the pick never mutates your master config.
 aztx
+
+# Inside the isolated shell:
+echo $AZURE_CONFIG_DIR   # /tmp/aztx.XXXXXXX
+az account show          # shows the picked subscription
+
+# Re-run aztx inside the isolated shell to switch subscription in place
+# (no nested subshell is spawned).
+aztx
+
+# Exit the subshell; the tempdir is cleaned up automatically.
+exit
 
 # Switch to previous subscription context
 aztx -
@@ -75,6 +92,22 @@ aztx -
 # Select tenant before choosing subscription
 aztx --by-tenant
 ```
+
+### In-Place Mode
+
+```sh
+# Mutate the active Azure config dir directly (upstream behavior):
+# no tempdir copy, no subshell.
+aztx --in-place
+```
+
+Notes on isolation:
+
+- The subshell is `$SHELL` (fallback `/bin/zsh`).
+- Each isolated context gets its own copy of the token cache. If tokens
+  expire, `az login` inside the subshell only affects that context.
+- `kubelogin`/`kubectl` honor `AZURE_CONFIG_DIR`, so AKS access works
+  inside the isolated shell.
 
 ## Configuration
 
