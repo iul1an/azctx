@@ -75,9 +75,9 @@ aztx
 echo $AZURE_CONFIG_DIR   # /tmp/aztx.XXXXXXX
 az account show          # shows the picked subscription
 
-# Re-run aztx inside the isolated shell to switch subscription in place
-# (no nested subshell is spawned).
-aztx
+# An isolated shell is bound to its subscription for its whole lifetime:
+# re-running aztx inside one is refused (it couldn't update the shell's
+# AZTX_SUBSCRIPTION). Exit the shell and re-run aztx, or use aztx exec.
 
 # Exit the subshell; the tempdir is cleaned up automatically.
 exit
@@ -110,8 +110,8 @@ aztx exec --subscription "My Subscription" -- kubectl get pods
 ### In-Place Mode
 
 ```sh
-# Mutate the active Azure config dir directly (upstream behavior):
-# no tempdir copy, no subshell.
+# Mutate the master ~/.azure directly (upstream behavior): no tempdir
+# copy, no subshell. Refused inside an isolated shell like bare aztx.
 aztx --in-place
 ```
 
@@ -120,8 +120,9 @@ Notes on isolation:
 - The subshell is `$SHELL` (fallback `/bin/zsh`).
 - The spawned shell/command gets `AZTX_SUBSCRIPTION` set to the picked
   subscription's name (like aws-vault's `AWS_VAULT`), handy for prompts
-  and wrapper scripts. Re-picking *inside* an isolated shell cannot
-  update that shell's already-exported value.
+  and wrapper scripts. It is always accurate because a shell's
+  subscription is immutable — re-picking inside an isolated shell is
+  refused, with no override.
 - Each isolated context gets its own copy of the token cache. If tokens
   expire, `az login` inside the subshell only affects that context.
 - `kubelogin`/`kubectl` honor `AZURE_CONFIG_DIR`, so AKS access works

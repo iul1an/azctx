@@ -50,12 +50,22 @@ var rootCmd = &cobra.Command{
 	Short: "Azure Tenant Context Switcher",
 	Long: `aztx is a command line tool that helps you switch between Azure tenants and subscriptions.
 It provides a fuzzy finder interface to select subscriptions and remembers your last context.`,
-	Args: cobra.MaximumNArgs(1),
+	Args:          cobra.MaximumNArgs(1),
+	SilenceUsage:  true,
+	SilenceErrors: true,
 	RunE: func(cmd *cobra.Command, args []string) error {
-		// In-place mode or already inside an aztx isolated shell: just pick,
-		// mutating whichever config dir is active. Note that a re-pick inside
-		// an isolated shell cannot update that shell's AZTX_SUBSCRIPTION.
-		if viper.GetBool("in-place") || isolation.IsActive() {
+		// An isolated shell is bound to the subscription it was started
+		// with: a re-pick inside it could not update the shell's exported
+		// AZTX_SUBSCRIPTION, so tools reading it would be lied to. There is
+		// deliberately no override.
+		if isolation.IsActive() {
+			return fmt.Errorf(
+				"already inside an aztx isolated shell (AZTX_SUBSCRIPTION=%q); exit it and re-run aztx, or use aztx exec for a one-off command in another context",
+				os.Getenv("AZTX_SUBSCRIPTION"))
+		}
+
+		// In-place mode: mutate the master ~/.azure directly, no subshell.
+		if viper.GetBool("in-place") {
 			_, err := pickContext(args)
 			return err
 		}
@@ -175,7 +185,7 @@ func init() {
 	rootCmd.PersistentFlags().String("log-level", "info", "Set log level (debug, info, warn, error)")
 	rootCmd.PersistentFlags().Bool("by-tenant", false, "Select tenant before choosing subscription")
 	rootCmd.PersistentFlags().String("subscription", "", "Select subscription by name or ID without the interactive picker")
-	rootCmd.Flags().Bool("in-place", false, "Mutate the active Azure config dir directly instead of spawning an isolated subshell")
+	rootCmd.Flags().Bool("in-place", false, "Mutate the master ~/.azure directly instead of spawning an isolated subshell")
 
 	// Bind flags to viper and check for errors
 	if err := viper.BindPFlag("log-level", rootCmd.PersistentFlags().Lookup("log-level")); err != nil {
