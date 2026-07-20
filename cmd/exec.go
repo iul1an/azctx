@@ -43,9 +43,10 @@ Similar to aws-vault exec, e.g.:
 		if err != nil {
 			return err
 		}
-		if !picked {
+		if picked == "" {
 			return ExitCodeError{Code: 1}
 		}
+		_ = os.Setenv("AZTX_SUBSCRIPTION", picked)
 
 		code, err := isolation.RunCommand(args)
 		if err != nil {

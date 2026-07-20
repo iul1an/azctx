@@ -53,7 +53,8 @@ It provides a fuzzy finder interface to select subscriptions and remembers your 
 	Args: cobra.MaximumNArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		// In-place mode or already inside an aztx isolated shell: just pick,
-		// mutating whichever config dir is active.
+		// mutating whichever config dir is active. Note that a re-pick inside
+		// an isolated shell cannot update that shell's AZTX_SUBSCRIPTION.
 		if viper.GetBool("in-place") || isolation.IsActive() {
 			_, err := pickContext(args)
 			return err
@@ -68,27 +69,29 @@ It provides a fuzzy finder interface to select subscriptions and remembers your 
 		defer func() { _ = os.RemoveAll(tmpDir) }()
 
 		picked, err := pickContext(args)
-		if err != nil || !picked {
+		if err != nil || picked == "" {
 			return err
 		}
+		_ = os.Setenv("AZTX_SUBSCRIPTION", picked)
 		return isolation.SpawnShell()
 	},
 }
 
 // pickContext runs the subscription/tenant picker against the active Azure
-// config dir (honoring AZURE_CONFIG_DIR). It returns false when the user
-// aborted the fuzzy finder without picking anything.
-func pickContext(args []string) (bool, error) {
+// config dir (honoring AZURE_CONFIG_DIR) and returns the name of the picked
+// subscription. It returns "" when the user aborted the fuzzy finder without
+// picking anything.
+func pickContext(args []string) (string, error) {
 	stateManager := state.NewViperStateManager(viper.GetViper())
 	storage := storage.FileAdapter{}
 	if err := storage.FetchDefaultPath("azureProfile.json"); err != nil {
-		return false, pkgerrors.ErrFileOperation("fetching default profile path", err)
+		return "", pkgerrors.ErrFileOperation("fetching default profile path", err)
 	}
 
 	logger := profile.NewLogger(viper.GetString("log-level"))
 	cfg, err := storage.ReadConfig()
 	if err != nil {
-		return false, pkgerrors.ErrReadingConfiguration(err)
+		return "", pkgerrors.ErrReadingConfiguration(err)
 	}
 
 	// Non-interactive selection by subscription name or ID
@@ -96,21 +99,22 @@ func pickContext(args []string) (bool, error) {
 		subManager := subscription.Manager{BaseManager: types.BaseManager{Configuration: cfg}}
 		sub, err := subManager.FindSubscriptionByNameOrID(query)
 		if err != nil {
-			return false, pkgerrors.ErrOperation(fmt.Sprintf("finding subscription %q", query), err)
+			return "", pkgerrors.ErrOperation(fmt.Sprintf("finding subscription %q", query), err)
 		}
 		adapter := profile.NewConfigurationAdapter(&storage, logger)
 		if err := adapter.SetContext(sub.ID); err != nil {
-			return false, pkgerrors.ErrOperation("setting context", err)
+			return "", pkgerrors.ErrOperation("setting context", err)
 		}
-		return true, nil
+		return sub.Name, nil
 	}
 
 	if len(args) > 0 && args[0] == "-" {
+		_, lastName := stateManager.GetLastContext()
 		adapter := profile.NewConfigurationAdapter(&storage, logger)
 		if err := adapter.SetPreviousContext(stateManager); err != nil {
-			return false, pkgerrors.ErrSettingPreviousContext(err)
+			return "", pkgerrors.ErrSettingPreviousContext(err)
 		}
-		return true, nil
+		return lastName, nil
 	}
 
 	// Check if tenant selection is requested
@@ -119,25 +123,25 @@ func pickContext(args []string) (bool, error) {
 		selectedTenant, err := tenantManager.FindTenantIndex()
 		if err != nil {
 			if errors.Is(err, fuzzyfinder.ErrAbort) {
-				return false, nil
+				return "", nil
 			}
-			return false, pkgerrors.ErrTenantOperation("selecting tenant", err)
+			return "", pkgerrors.ErrTenantOperation("selecting tenant", err)
 		}
 
 		subManager := subscription.Manager{BaseManager: types.BaseManager{Configuration: cfg}}
 		sub, err := subManager.FindSubscriptionIndexByTenant(selectedTenant.ID)
 		if err != nil {
 			if errors.Is(err, fuzzyfinder.ErrAbort) {
-				return false, nil
+				return "", nil
 			}
-			return false, pkgerrors.ErrSelectingSubscription(err)
+			return "", pkgerrors.ErrSelectingSubscription(err)
 		}
 
 		adapter := profile.NewConfigurationAdapter(&storage, logger)
 		if err := adapter.SetContext(sub.ID); err != nil {
-			return false, pkgerrors.ErrOperation("setting context", err)
+			return "", pkgerrors.ErrOperation("setting context", err)
 		}
-		return true, nil
+		return sub.Name, nil
 	}
 
 	// Default subscription selection
@@ -145,16 +149,16 @@ func pickContext(args []string) (bool, error) {
 	sub, err := adapter.SelectWithFinder()
 	if err != nil {
 		if errors.Is(err, fuzzyfinder.ErrAbort) {
-			return false, nil
+			return "", nil
 		}
-		return false, pkgerrors.ErrSelectingSubscription(err)
+		return "", pkgerrors.ErrSelectingSubscription(err)
 	}
 
 	if err := adapter.SetContext(sub.ID); err != nil {
-		return false, pkgerrors.ErrOperation("setting context", err)
+		return "", pkgerrors.ErrOperation("setting context", err)
 	}
 
-	return true, nil
+	return sub.Name, nil
 }
 
 // Execute adds all child commands to the root command and sets flags appropriately.

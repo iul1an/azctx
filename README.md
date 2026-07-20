@@ -118,6 +118,10 @@ aztx --in-place
 Notes on isolation:
 
 - The subshell is `$SHELL` (fallback `/bin/zsh`).
+- The spawned shell/command gets `AZTX_SUBSCRIPTION` set to the picked
+  subscription's name (like aws-vault's `AWS_VAULT`), handy for prompts
+  and wrapper scripts. Re-picking *inside* an isolated shell cannot
+  update that shell's already-exported value.
 - Each isolated context gets its own copy of the token cache. If tokens
   expire, `az login` inside the subshell only affects that context.
 - `kubelogin`/`kubectl` honor `AZURE_CONFIG_DIR`, so AKS access works
