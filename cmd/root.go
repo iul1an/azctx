@@ -31,6 +31,7 @@ import (
 
 	"github.com/ktr0731/go-fuzzyfinder"
 	pkgerrors "github.com/riweston/aztx/pkg/errors"
+	"github.com/riweston/aztx/pkg/isolation"
 	"github.com/riweston/aztx/pkg/profile"
 	"github.com/riweston/aztx/pkg/state"
 	"github.com/riweston/aztx/pkg/storage"
@@ -50,69 +51,95 @@ var rootCmd = &cobra.Command{
 It provides a fuzzy finder interface to select subscriptions and remembers your last context.`,
 	Args: cobra.MaximumNArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
-		stateManager := state.NewViperStateManager(viper.GetViper())
-		storage := storage.FileAdapter{}
-		if err := storage.FetchDefaultPath("azureProfile.json"); err != nil {
-			return pkgerrors.ErrFileOperation("fetching default profile path", err)
+		// In-place mode or already inside an aztx isolated shell: just pick,
+		// mutating whichever config dir is active.
+		if viper.GetBool("in-place") || isolation.IsActive() {
+			_, err := pickContext(args)
+			return err
 		}
 
-		logger := profile.NewLogger(viper.GetString("log-level"))
-		cfg, err := storage.ReadConfig()
+		// Isolated mode (the default): copy ~/.azure to a private tempdir,
+		// pick inside it, then drop into a subshell scoped to the copy.
+		tmpDir, err := isolation.Setup()
 		if err != nil {
-			return pkgerrors.ErrReadingConfiguration(err)
+			return pkgerrors.ErrOperation("setting up isolated config", err)
 		}
+		defer os.RemoveAll(tmpDir)
 
-		if len(args) > 0 && args[0] == "-" {
-			adapter := profile.NewConfigurationAdapter(&storage, logger)
-			if err := adapter.SetPreviousContext(stateManager); err != nil {
-				return pkgerrors.ErrSettingPreviousContext(err)
-			}
-			return nil
+		picked, err := pickContext(args)
+		if err != nil || !picked {
+			return err
 		}
+		return isolation.SpawnShell()
+	},
+}
 
-		// Check if tenant selection is requested
-		if viper.GetBool("by-tenant") {
-			tenantManager := tenant.Manager{BaseManager: types.BaseManager{Configuration: cfg}}
-			selectedTenant, err := tenantManager.FindTenantIndex()
-			if err != nil {
-				if errors.Is(err, fuzzyfinder.ErrAbort) {
-					return nil
-				}
-				return pkgerrors.ErrTenantOperation("selecting tenant", err)
-			}
+// pickContext runs the subscription/tenant picker against the active Azure
+// config dir (honoring AZURE_CONFIG_DIR). It returns false when the user
+// aborted the fuzzy finder without picking anything.
+func pickContext(args []string) (bool, error) {
+	stateManager := state.NewViperStateManager(viper.GetViper())
+	storage := storage.FileAdapter{}
+	if err := storage.FetchDefaultPath("azureProfile.json"); err != nil {
+		return false, pkgerrors.ErrFileOperation("fetching default profile path", err)
+	}
 
-			subManager := subscription.Manager{BaseManager: types.BaseManager{Configuration: cfg}}
-			sub, err := subManager.FindSubscriptionIndexByTenant(selectedTenant.ID)
-			if err != nil {
-				if errors.Is(err, fuzzyfinder.ErrAbort) {
-					return nil
-				}
-				return pkgerrors.ErrSelectingSubscription(err)
-			}
+	logger := profile.NewLogger(viper.GetString("log-level"))
+	cfg, err := storage.ReadConfig()
+	if err != nil {
+		return false, pkgerrors.ErrReadingConfiguration(err)
+	}
 
-			adapter := profile.NewConfigurationAdapter(&storage, logger)
-			if err := adapter.SetContext(sub.ID); err != nil {
-				return pkgerrors.ErrOperation("setting context", err)
-			}
-			return nil
-		}
-
-		// Default subscription selection
+	if len(args) > 0 && args[0] == "-" {
 		adapter := profile.NewConfigurationAdapter(&storage, logger)
-		sub, err := adapter.SelectWithFinder()
+		if err := adapter.SetPreviousContext(stateManager); err != nil {
+			return false, pkgerrors.ErrSettingPreviousContext(err)
+		}
+		return true, nil
+	}
+
+	// Check if tenant selection is requested
+	if viper.GetBool("by-tenant") {
+		tenantManager := tenant.Manager{BaseManager: types.BaseManager{Configuration: cfg}}
+		selectedTenant, err := tenantManager.FindTenantIndex()
 		if err != nil {
 			if errors.Is(err, fuzzyfinder.ErrAbort) {
-				return nil
+				return false, nil
 			}
-			return pkgerrors.ErrSelectingSubscription(err)
+			return false, pkgerrors.ErrTenantOperation("selecting tenant", err)
 		}
 
+		subManager := subscription.Manager{BaseManager: types.BaseManager{Configuration: cfg}}
+		sub, err := subManager.FindSubscriptionIndexByTenant(selectedTenant.ID)
+		if err != nil {
+			if errors.Is(err, fuzzyfinder.ErrAbort) {
+				return false, nil
+			}
+			return false, pkgerrors.ErrSelectingSubscription(err)
+		}
+
+		adapter := profile.NewConfigurationAdapter(&storage, logger)
 		if err := adapter.SetContext(sub.ID); err != nil {
-			return pkgerrors.ErrOperation("setting context", err)
+			return false, pkgerrors.ErrOperation("setting context", err)
 		}
+		return true, nil
+	}
 
-		return nil
-	},
+	// Default subscription selection
+	adapter := profile.NewConfigurationAdapter(&storage, logger)
+	sub, err := adapter.SelectWithFinder()
+	if err != nil {
+		if errors.Is(err, fuzzyfinder.ErrAbort) {
+			return false, nil
+		}
+		return false, pkgerrors.ErrSelectingSubscription(err)
+	}
+
+	if err := adapter.SetContext(sub.ID); err != nil {
+		return false, pkgerrors.ErrOperation("setting context", err)
+	}
+
+	return true, nil
 }
 
 // Execute adds all child commands to the root command and sets flags appropriately.
@@ -128,6 +155,7 @@ func init() {
 	cobra.OnInitialize(initConfig)
 	rootCmd.PersistentFlags().String("log-level", "info", "Set log level (debug, info, warn, error)")
 	rootCmd.Flags().Bool("by-tenant", false, "Select tenant before choosing subscription")
+	rootCmd.Flags().Bool("in-place", false, "Mutate the active Azure config dir directly instead of spawning an isolated subshell")
 
 	// Bind flags to viper and check for errors
 	if err := viper.BindPFlag("log-level", rootCmd.PersistentFlags().Lookup("log-level")); err != nil {
@@ -138,6 +166,11 @@ func init() {
 	if err := viper.BindPFlag("by-tenant", rootCmd.Flags().Lookup("by-tenant")); err != nil {
 		logger := profile.NewLogger("error")
 		logger.Error("Failed to bind by-tenant flag: %v", err)
+		os.Exit(1)
+	}
+	if err := viper.BindPFlag("in-place", rootCmd.Flags().Lookup("in-place")); err != nil {
+		logger := profile.NewLogger("error")
+		logger.Error("Failed to bind in-place flag: %v", err)
 		os.Exit(1)
 	}
 }
