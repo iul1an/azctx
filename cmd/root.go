@@ -64,7 +64,7 @@ It provides a fuzzy finder interface to select subscriptions and remembers your 
 		if err != nil {
 			return pkgerrors.ErrOperation("setting up isolated config", err)
 		}
-		defer os.RemoveAll(tmpDir)
+		defer func() { _ = os.RemoveAll(tmpDir) }()
 
 		picked, err := pickContext(args)
 		if err != nil || !picked {

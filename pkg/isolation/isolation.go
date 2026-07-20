@@ -46,12 +46,12 @@ func Setup() (string, error) {
 	}
 
 	if err := os.CopyFS(tmpDir, os.DirFS(azureDir)); err != nil {
-		os.RemoveAll(tmpDir)
+		_ = os.RemoveAll(tmpDir)
 		return "", fmt.Errorf("copying %s to isolated config dir: %w", azureDir, err)
 	}
 
 	if err := os.Setenv("AZURE_CONFIG_DIR", tmpDir); err != nil {
-		os.RemoveAll(tmpDir)
+		_ = os.RemoveAll(tmpDir)
 		return "", fmt.Errorf("setting AZURE_CONFIG_DIR: %w", err)
 	}
 	return tmpDir, nil

@@ -17,7 +17,7 @@ import (
 func TestFileAdapter_FetchDefaultPath(t *testing.T) {
 	t.Run("defaults to ~/.azure", func(t *testing.T) {
 		t.Setenv("AZURE_CONFIG_DIR", "")
-		os.Unsetenv("AZURE_CONFIG_DIR")
+		_ = os.Unsetenv("AZURE_CONFIG_DIR")
 
 		fa := &FileAdapter{}
 		err := fa.FetchDefaultPath("test.json")

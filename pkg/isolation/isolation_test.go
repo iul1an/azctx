@@ -12,7 +12,7 @@ import (
 func TestIsActive(t *testing.T) {
 	t.Run("false when AZURE_CONFIG_DIR is unset", func(t *testing.T) {
 		t.Setenv("AZURE_CONFIG_DIR", "")
-		os.Unsetenv("AZURE_CONFIG_DIR")
+		_ = os.Unsetenv("AZURE_CONFIG_DIR")
 		assert.False(t, IsActive())
 	})
 
@@ -37,11 +37,11 @@ func TestSetup(t *testing.T) {
 	require.NoError(t, os.WriteFile(filepath.Join(azureDir, "msal_token_cache", "cache.json"), []byte(`{}`), 0o600))
 
 	t.Setenv("AZURE_CONFIG_DIR", "")
-	os.Unsetenv("AZURE_CONFIG_DIR")
+	_ = os.Unsetenv("AZURE_CONFIG_DIR")
 
 	tmpDir, err := Setup()
 	require.NoError(t, err)
-	t.Cleanup(func() { os.RemoveAll(tmpDir) })
+	t.Cleanup(func() { _ = os.RemoveAll(tmpDir) })
 
 	// Tempdir matches the detection pattern and is now the active config dir.
 	assert.Equal(t, tmpDir, os.Getenv("AZURE_CONFIG_DIR"))
@@ -60,11 +60,27 @@ func TestSetup(t *testing.T) {
 	assert.Equal(t, os.FileMode(0o700), info.Mode().Perm())
 }
 
+func TestSpawnShellInheritsConfigDir(t *testing.T) {
+	dir := t.TempDir()
+	outFile := filepath.Join(dir, "out")
+	shellScript := filepath.Join(dir, "fakeshell")
+	require.NoError(t, os.WriteFile(shellScript, []byte("#!/bin/sh\nprintf '%s' \"$AZURE_CONFIG_DIR\" > "+outFile+"\n"), 0o755))
+
+	t.Setenv("SHELL", shellScript)
+	t.Setenv("AZURE_CONFIG_DIR", "/isolated/config/dir")
+
+	require.NoError(t, SpawnShell())
+
+	data, err := os.ReadFile(outFile)
+	require.NoError(t, err)
+	assert.Equal(t, "/isolated/config/dir", string(data))
+}
+
 func TestSetupMissingAzureDir(t *testing.T) {
 	home := t.TempDir()
 	t.Setenv("HOME", home)
 	t.Setenv("AZURE_CONFIG_DIR", "")
-	os.Unsetenv("AZURE_CONFIG_DIR")
+	_ = os.Unsetenv("AZURE_CONFIG_DIR")
 
 	_, err := Setup()
 	assert.Error(t, err)
