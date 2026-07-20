@@ -93,6 +93,16 @@ aztx -
 aztx --by-tenant
 ```
 
+### Exec Mode
+
+```sh
+# Pick a subscription, run a single command in the isolated context,
+# then clean up — similar to aws-vault exec. The command's exit code
+# is propagated.
+aztx exec -- kubectl get pods
+aztx exec --by-tenant -- kubie ctx my-aks-cluster
+```
+
 ### In-Place Mode
 
 ```sh

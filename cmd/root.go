@@ -154,7 +154,7 @@ func Execute() error {
 func init() {
 	cobra.OnInitialize(initConfig)
 	rootCmd.PersistentFlags().String("log-level", "info", "Set log level (debug, info, warn, error)")
-	rootCmd.Flags().Bool("by-tenant", false, "Select tenant before choosing subscription")
+	rootCmd.PersistentFlags().Bool("by-tenant", false, "Select tenant before choosing subscription")
 	rootCmd.Flags().Bool("in-place", false, "Mutate the active Azure config dir directly instead of spawning an isolated subshell")
 
 	// Bind flags to viper and check for errors
@@ -163,7 +163,7 @@ func init() {
 		logger.Error("Failed to bind log-level flag: %v", err)
 		os.Exit(1)
 	}
-	if err := viper.BindPFlag("by-tenant", rootCmd.Flags().Lookup("by-tenant")); err != nil {
+	if err := viper.BindPFlag("by-tenant", rootCmd.PersistentFlags().Lookup("by-tenant")); err != nil {
 		logger := profile.NewLogger("error")
 		logger.Error("Failed to bind by-tenant flag: %v", err)
 		os.Exit(1)

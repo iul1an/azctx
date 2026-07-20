@@ -22,6 +22,7 @@ THE SOFTWARE.
 package main
 
 import (
+	"errors"
 	"fmt"
 	"os"
 
@@ -30,6 +31,12 @@ import (
 
 func main() {
 	if err := cmd.Execute(); err != nil {
+		var exitErr cmd.ExitCodeError
+		if errors.As(err, &exitErr) {
+			// The child command already reported its own failure; just
+			// mirror its exit code.
+			os.Exit(exitErr.Code)
+		}
 		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
 		os.Exit(1)
 	}

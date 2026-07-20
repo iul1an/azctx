@@ -76,6 +76,33 @@ func TestSpawnShellInheritsConfigDir(t *testing.T) {
 	assert.Equal(t, "/isolated/config/dir", string(data))
 }
 
+func TestRunCommand(t *testing.T) {
+	t.Run("inherits AZURE_CONFIG_DIR and returns exit code 0", func(t *testing.T) {
+		dir := t.TempDir()
+		outFile := filepath.Join(dir, "out")
+		t.Setenv("AZURE_CONFIG_DIR", "/isolated/config/dir")
+
+		code, err := RunCommand([]string{"/bin/sh", "-c", "printf '%s' \"$AZURE_CONFIG_DIR\" > " + outFile})
+		require.NoError(t, err)
+		assert.Equal(t, 0, code)
+
+		data, err := os.ReadFile(outFile)
+		require.NoError(t, err)
+		assert.Equal(t, "/isolated/config/dir", string(data))
+	})
+
+	t.Run("propagates non-zero exit code without error", func(t *testing.T) {
+		code, err := RunCommand([]string{"/bin/sh", "-c", "exit 3"})
+		require.NoError(t, err)
+		assert.Equal(t, 3, code)
+	})
+
+	t.Run("errors on unrunnable command", func(t *testing.T) {
+		_, err := RunCommand([]string{"/nonexistent/binary"})
+		assert.Error(t, err)
+	})
+}
+
 func TestSetupMissingAzureDir(t *testing.T) {
 	home := t.TempDir()
 	t.Setenv("HOME", home)

@@ -60,15 +60,25 @@ func Setup() (string, error) {
 // SpawnShell runs $SHELL (fallback /bin/zsh) attached to the current
 // terminal, inheriting the environment (including AZURE_CONFIG_DIR set by
 // Setup). It blocks until the shell exits so the caller's deferred cleanup
-// can remove the tempdir. SIGINT/SIGTERM are swallowed while the shell runs;
-// they are delivered to the shell's foreground process by the terminal.
+// can remove the tempdir. The shell's own exit status is not treated as an
+// aztx error.
 func SpawnShell() error {
 	shell := os.Getenv("SHELL")
 	if shell == "" {
 		shell = "/bin/zsh"
 	}
+	_, err := RunCommand([]string{shell})
+	return err
+}
 
-	cmd := exec.Command(shell)
+// RunCommand runs argv attached to the current terminal, inheriting the
+// environment (including AZURE_CONFIG_DIR set by Setup), and blocks until it
+// exits so the caller's deferred cleanup can remove the tempdir. It returns
+// the command's exit code; err is only set when the command could not be
+// started. SIGINT/SIGTERM are swallowed while the child runs; the terminal
+// delivers them to the child's foreground process group.
+func RunCommand(argv []string) (int, error) {
+	cmd := exec.Command(argv[0], argv[1:]...)
 	cmd.Stdin = os.Stdin
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
@@ -84,11 +94,9 @@ func SpawnShell() error {
 	if err := cmd.Run(); err != nil {
 		var exitErr *exec.ExitError
 		if errors.As(err, &exitErr) {
-			// The shell exiting non-zero (e.g. last command failed) is not an
-			// aztx error; don't surface it as one.
-			return nil
+			return exitErr.ExitCode(), nil
 		}
-		return fmt.Errorf("running %s: %w", shell, err)
+		return -1, fmt.Errorf("running %s: %w", argv[0], err)
 	}
-	return nil
+	return 0, nil
 }
