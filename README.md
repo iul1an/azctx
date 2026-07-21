@@ -42,8 +42,8 @@ Download the latest release from the [releases page](https://github.com/iul1an/a
 
 ```sh
 go install github.com/iul1an/aztx@latest
-# or from a checkout:
-make install   # builds and installs to ~/bin
+# or from a checkout (default /usr/local/bin; override e.g. PREFIX=$HOME for ~/bin):
+make install PREFIX=$HOME
 ```
 
 ## Usage
