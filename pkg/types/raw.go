@@ -18,7 +18,7 @@ func mergeRaw(raw map[string]json.RawMessage, typed []byte) ([]byte, error) {
 	if err := json.Unmarshal(typed, &typedMap); err != nil {
 		return nil, err
 	}
-	merged := make(map[string]json.RawMessage, len(raw)+len(typedMap))
+	merged := make(map[string]json.RawMessage, len(raw))
 	for k, v := range raw {
 		merged[k] = v
 	}
