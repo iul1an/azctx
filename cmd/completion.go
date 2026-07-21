@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"fmt"
 	"github.com/iul1an/azctx/pkg/storage"
 	"github.com/spf13/cobra"
 )
@@ -16,11 +17,15 @@ func completeSubscriptions(cmd *cobra.Command, args []string, toComplete string)
 	if err != nil {
 		return nil, cobra.ShellCompDirectiveError
 	}
-	names := make([]string, 0, len(cfg.Subscriptions))
+	// Complete IDs, with the name shown as the menu description. Names
+	// often contain spaces, which cobra's zsh script cannot re-parse when
+	// continuing a partially completed word (Tab goes dead after the
+	// escaped space); IDs are space-free and --subscription accepts them.
+	entries := make([]string, 0, len(cfg.Subscriptions))
 	for _, s := range cfg.Subscriptions {
-		names = append(names, s.Name)
+		entries = append(entries, fmt.Sprintf("%s\t%s", s.ID, s.Name))
 	}
-	return names, cobra.ShellCompDirectiveNoFileComp
+	return entries, cobra.ShellCompDirectiveNoFileComp
 }
 
 // registerCompletions attaches flag value completions; called from root.go's
