@@ -29,3 +29,24 @@ changelog:
       - "^chore"
       - "^docs"
       - "^test"
+
+homebrew_casks:
+  - name: azctx
+    repository:
+      owner: iul1an
+      name: homebrew-azctx
+      token: "{{ .Env.HOMEBREW_TAP_TOKEN }}"
+    homepage: "https://github.com/iul1an/azctx"
+    description: "Per-shell isolated Azure subscription contexts"
+    binaries:
+      - azctx
+    dependencies:
+      - formula: azure-cli
+    # The release binaries are unsigned; clear the quarantine bit so
+    # Gatekeeper does not block them.
+    hooks:
+      post:
+        install: |
+          if OS.mac?
+            system_command "/usr/bin/xattr", args: ["-dr", "com.apple.quarantine", "#{staged_path}/azctx"]
+          end

@@ -24,6 +24,12 @@
 Linux and macOS only — the per-shell isolation relies on Unix process
 semantics (`$SHELL`, signals), so there are no Windows builds.
 
+### [Brew](https://brew.sh/) (macOS/Linux)
+
+```sh
+brew install iul1an/azctx/azctx
+```
+
 ### Download Prebuilt Binary
 
 Download the latest release from the [releases page](https://github.com/iul1an/azctx/releases) and add it to your PATH.
