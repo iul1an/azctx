@@ -7,10 +7,10 @@ import (
 
 	"github.com/google/uuid"
 	pkgerrors "github.com/iul1an/azctx/pkg/errors"
+	"github.com/iul1an/azctx/pkg/finder"
 	"github.com/iul1an/azctx/pkg/subscription"
 	"github.com/iul1an/azctx/pkg/tenant"
 	"github.com/iul1an/azctx/pkg/types"
-	"github.com/ktr0731/go-fuzzyfinder"
 )
 
 type ConfigurationAdapter struct {
@@ -47,7 +47,7 @@ func (c *ConfigurationAdapter) SelectWithFinder() (*types.Subscription, error) {
 	subManager := subscription.Manager{BaseManager: types.BaseManager{Configuration: config}}
 	idx, err := subManager.FindSubscriptionIndex()
 	if err != nil {
-		if errors.Is(err, fuzzyfinder.ErrAbort) {
+		if errors.Is(err, finder.ErrAbort) {
 			return nil, err
 		}
 		c.logger.Error("failed to get subscription selection: %v", err)

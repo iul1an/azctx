@@ -33,6 +33,7 @@ import (
 	"strings"
 
 	pkgerrors "github.com/iul1an/azctx/pkg/errors"
+	"github.com/iul1an/azctx/pkg/finder"
 	"github.com/iul1an/azctx/pkg/isolation"
 	"github.com/iul1an/azctx/pkg/profile"
 	"github.com/iul1an/azctx/pkg/state"
@@ -40,7 +41,6 @@ import (
 	"github.com/iul1an/azctx/pkg/subscription"
 	"github.com/iul1an/azctx/pkg/tenant"
 	"github.com/iul1an/azctx/pkg/types"
-	"github.com/ktr0731/go-fuzzyfinder"
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
@@ -120,6 +120,8 @@ It provides a fuzzy finder interface to select subscriptions and remembers your 
 // subscription. It returns "" when the user aborted the fuzzy finder without
 // picking anything.
 func pickContext(args []string) (string, error) {
+	finder.Configure(viper.GetStringSlice("picker.options"))
+
 	stateManager := state.NewFileStateManager()
 	storage := storage.FileAdapter{}
 	if err := storage.FetchDefaultPath("azureProfile.json"); err != nil {
@@ -186,7 +188,7 @@ func pickContext(args []string) (string, error) {
 		tenantManager := tenant.Manager{BaseManager: types.BaseManager{Configuration: cfg}}
 		selectedTenant, err := tenantManager.FindTenantIndex()
 		if err != nil {
-			if errors.Is(err, fuzzyfinder.ErrAbort) {
+			if errors.Is(err, finder.ErrAbort) {
 				return "", nil
 			}
 			return "", pkgerrors.ErrTenantOperation("selecting tenant", err)
@@ -195,7 +197,7 @@ func pickContext(args []string) (string, error) {
 		subManager := subscription.Manager{BaseManager: types.BaseManager{Configuration: cfg}}
 		sub, err := subManager.FindSubscriptionIndexByTenant(selectedTenant.ID)
 		if err != nil {
-			if errors.Is(err, fuzzyfinder.ErrAbort) {
+			if errors.Is(err, finder.ErrAbort) {
 				return "", nil
 			}
 			return "", pkgerrors.ErrSelectingSubscription(err)
@@ -208,7 +210,7 @@ func pickContext(args []string) (string, error) {
 	adapter := profile.NewConfigurationAdapter(&storage, logger)
 	sub, err := adapter.SelectWithFinder()
 	if err != nil {
-		if errors.Is(err, fuzzyfinder.ErrAbort) {
+		if errors.Is(err, finder.ErrAbort) {
 			return "", nil
 		}
 		return "", pkgerrors.ErrSelectingSubscription(err)
@@ -286,7 +288,7 @@ func initConfig() {
 	viper.SetConfigType("yml")
 	viper.SetConfigName(".azctx")
 	viper.SetEnvPrefix("AZCTX")
-	viper.SetEnvKeyReplacer(strings.NewReplacer("-", "_"))
+	viper.SetEnvKeyReplacer(strings.NewReplacer("-", "_", ".", "_"))
 	viper.AutomaticEnv()
 
 	// The config file is optional; only a malformed one is an error.

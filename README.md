@@ -8,7 +8,7 @@
 ## Features
 
 - 🐚 **Per-shell isolated contexts** — each `azctx` invocation copies `~/.azure` to a private tempdir, sets `AZURE_CONFIG_DIR`, and drops you into a subshell; the master `~/.azure` is never touched
-- 🔍 Fuzzy search interface for finding subscriptions and tenants
+- 🔍 Real fzf picker, embedded — inline (no full-screen takeover), themed by your FZF_DEFAULT_OPTS and any fzf options via config
 - ⚡ Quick context switching between subscriptions
 - 🔄 Easy switching to previous context (similar to `cd -`)
 - 🎯 Tenant-first selection mode
@@ -170,6 +170,12 @@ by-tenant: false
 # unset: true makes every bare azctx run clear the default and exit.
 #in-place: false
 #unset: false
+
+# Picker look and feel: the picker is real fzf embedded as a library, so
+# it accepts any fzf options (defaults: --height=~40% --layout=reverse).
+# FZF_DEFAULT_OPTS is honored too, so an existing fzf theme just works.
+#picker:
+#  options: ["--height=~60%", "--border=rounded", "--prompt=azctx> "]
 ```
 
 You can also set configuration via environment variables:
