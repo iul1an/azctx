@@ -14,19 +14,10 @@
 - 🎯 Tenant-first selection mode
 - 🔧 Configurable logging levels
 
-### Demo
-
-[![asciicast](https://asciinema.org/a/Rk36acdIGN9K6w5WO5Rx74NwA.svg)](https://asciinema.org/a/Rk36acdIGN9K6w5WO5Rx74NwA)
-
 ## Prerequisites
 
-> [!NOTE]
-> This tool is built on top of the azure-cli and fzf and requires them to be installed and configured.
-> If you use the Brew or Scoop package managers, these pre-requisites will be handled during installation.
-
-- go >= 1.26 (build only)
-- azure-cli >= 2.22.1
-- fzf >= 0.20.0
+- azure-cli >= 2.22.1 (aztx manages its profile; the fuzzy finder itself is built in)
+- go >= 1.26 (building from source only)
 
 ## Installation
 
@@ -115,6 +106,10 @@ aztx exec --by-tenant -- kubie ctx my-aks-cluster
 aztx exec --subscription "My Subscription" -- kubectl get pods
 ```
 
+Inside an isolated shell, `aztx exec` without `--subscription` inherits
+that shell's subscription (via `AZTX_SUBSCRIPTION`) instead of showing
+the picker — the command still runs in its own fresh context.
+
 ### In-Place Mode
 
 ```sh
@@ -151,15 +146,17 @@ by-tenant: false
 You can also set configuration via environment variables:
 - `AZTX_LOG_LEVEL`: Set logging level
 - `AZTX_BY_TENANT`: Enable tenant-first selection mode
+- `AZTX_SUBSCRIPTION`: Same as `--subscription`. Note the dual role:
+  aztx also *exports* this into isolated shells, which is what makes
+  nested `aztx exec` inherit the shell's subscription.
 
 ## Contributing
 
-Contributions are welcome! Please feel free to submit a Pull Request.
+This is an opinionated personal fork; issues and PRs are welcome, but
+features that reintroduce mutation of `~/.azure` as a default won't be
+accepted. For the original tool, see [riweston/aztx](https://github.com/riweston/aztx).
 
 ## License
 
 This project is licensed under the MIT License - see the LICENSE file for details.
-
-## Show your support
-
-Give a ⭐️ if this project helped you!
+Original work © Richard Weston.
