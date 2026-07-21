@@ -32,7 +32,7 @@ var (
 	// Context related errors
 
 	// ErrNoPreviousContext is returned when attempting to switch to a previous context that doesn't exist
-	ErrNoPreviousContext = errors.New("no previous context recorded yet; it is remembered once you have switched subscriptions twice")
+	ErrNoPreviousContext = errors.New("no previous context recorded yet; pick a subscription with azctx first")
 
 	// Subscription related errors
 

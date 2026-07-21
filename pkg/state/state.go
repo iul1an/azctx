@@ -12,6 +12,9 @@ import (
 
 // StateManager handles all state operations.
 type StateManager interface {
+	// GetCurrentContext returns the most recently picked subscription, or
+	// empty strings if nothing was ever picked.
+	GetCurrentContext() (id string, name string)
 	// GetLastContext returns the previously used subscription (the one
 	// before the most recent pick), or empty strings if there is none.
 	GetLastContext() (id string, name string)
@@ -56,6 +59,11 @@ func (f *FileStateManager) read() stateFile {
 	}
 	_ = json.Unmarshal(data, &s)
 	return s
+}
+
+func (f *FileStateManager) GetCurrentContext() (string, string) {
+	s := f.read()
+	return s.Current.ID, s.Current.Name
 }
 
 func (f *FileStateManager) GetLastContext() (string, string) {

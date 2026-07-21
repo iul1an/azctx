@@ -157,15 +157,28 @@ func pickContext(args []string) (string, error) {
 	}
 
 	if len(args) > 0 && args[0] == "-" {
-		lastID, lastName := stateManager.GetLastContext()
-		if lastID == "" {
+		targetID, targetName := stateManager.GetCurrentContext()
+		if targetID == "" {
 			return "", pkgerrors.ErrSettingPreviousContext(pkgerrors.ErrNoPreviousContext)
 		}
-		id, err := uuid.Parse(lastID)
+		// If the active profile is already on the most recent pick (e.g.
+		// in-place usage), "-" means the one before it — cd - toggling.
+		// Otherwise "-" re-enters the most recent pick.
+		for _, s := range cfg.Subscriptions {
+			if s.IsDefault && s.ID.String() == targetID {
+				lastID, lastName := stateManager.GetLastContext()
+				if lastID == "" {
+					return "", pkgerrors.ErrSettingPreviousContext(pkgerrors.ErrNoPreviousContext)
+				}
+				targetID, targetName = lastID, lastName
+				break
+			}
+		}
+		id, err := uuid.Parse(targetID)
 		if err != nil {
 			return "", pkgerrors.WrapError("parsing previous subscription ID", err)
 		}
-		return setContext(id, lastName)
+		return setContext(id, targetName)
 	}
 
 	// Check if tenant selection is requested
