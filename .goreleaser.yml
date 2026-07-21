@@ -40,6 +40,10 @@ homebrew_casks:
     description: "Per-shell isolated Azure subscription contexts"
     binaries:
       - azctx
+    generate_completions_from_executable:
+      executable: azctx
+      args: [completion]
+      shells: [bash, zsh, fish]
     dependencies:
       - formula: azure-cli
     # The release binaries are unsigned; clear the quarantine bit so
