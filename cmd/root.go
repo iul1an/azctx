@@ -83,6 +83,19 @@ It provides a fuzzy finder interface to select subscriptions and remembers your 
 			return err
 		}
 
+		// Fresh mode: an empty isolated context, nothing copied, no picker.
+		// az behaves as never-logged-in inside; everything done there (e.g.
+		// an az login) vanishes when the shell exits.
+		if viper.GetBool("fresh") {
+			tmpDir, err := isolation.SetupEmpty()
+			if err != nil {
+				return pkgerrors.ErrOperation("setting up fresh config", err)
+			}
+			defer func() { _ = os.RemoveAll(tmpDir) }()
+			fmt.Fprintln(os.Stderr, "fresh empty Azure context; run `az login` inside to use it")
+			return isolation.SpawnShell()
+		}
+
 		// Isolated mode (the default): copy ~/.azure to a private tempdir,
 		// pick inside it, then drop into a subshell scoped to the copy.
 		tmpDir, err := isolation.Setup()
@@ -200,6 +213,7 @@ func init() {
 	rootCmd.PersistentFlags().String("subscription", "", "Select subscription by name or ID without the interactive picker")
 	rootCmd.Flags().Bool("in-place", false, "Mutate the master ~/.azure directly instead of spawning an isolated subshell")
 	rootCmd.Flags().Bool("unset", false, "Clear the default subscription in the master ~/.azure and exit")
+	rootCmd.PersistentFlags().Bool("fresh", false, "Start from an empty Azure config (skip copying ~/.azure, no picker) for ephemeral workflows")
 
 	// Bind flags to viper and check for errors
 	if err := viper.BindPFlag("log-level", rootCmd.PersistentFlags().Lookup("log-level")); err != nil {
@@ -225,6 +239,11 @@ func init() {
 	if err := viper.BindPFlag("unset", rootCmd.Flags().Lookup("unset")); err != nil {
 		logger := profile.NewLogger("error")
 		logger.Error("Failed to bind unset flag: %v", err)
+		os.Exit(1)
+	}
+	if err := viper.BindPFlag("fresh", rootCmd.PersistentFlags().Lookup("fresh")); err != nil {
+		logger := profile.NewLogger("error")
+		logger.Error("Failed to bind fresh flag: %v", err)
 		os.Exit(1)
 	}
 

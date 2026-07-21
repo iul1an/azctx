@@ -7,6 +7,7 @@ import (
 	pkgerrors "github.com/riweston/aztx/pkg/errors"
 	"github.com/riweston/aztx/pkg/isolation"
 	"github.com/spf13/cobra"
+	"github.com/spf13/viper"
 )
 
 // ExitCodeError carries a child process's exit code up to main so aztx can
@@ -34,6 +35,23 @@ Similar to aws-vault exec, e.g.:
 	SilenceErrors: true,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		sweepOrphans()
+
+		// Fresh mode: run the command in an empty context, no picker.
+		if viper.GetBool("fresh") {
+			tmpDir, err := isolation.SetupEmpty()
+			if err != nil {
+				return pkgerrors.ErrOperation("setting up fresh config", err)
+			}
+			defer func() { _ = os.RemoveAll(tmpDir) }()
+			code, err := isolation.RunCommand(args)
+			if err != nil {
+				return err
+			}
+			if code != 0 {
+				return ExitCodeError{Code: code}
+			}
+			return nil
+		}
 
 		tmpDir, err := isolation.Setup()
 		if err != nil {

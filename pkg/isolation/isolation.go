@@ -29,6 +29,34 @@ func IsActive() bool {
 	return strings.HasPrefix(dir, prefix)
 }
 
+// newContextDir creates a private tempdir with the aztx meta marker written
+// before anything else, so Sweep/ListContexts never see an unmarked
+// half-built dir of ours.
+func newContextDir() (string, error) {
+	tmpDir, err := os.MkdirTemp("", tempDirPattern)
+	if err != nil {
+		return "", fmt.Errorf("creating isolated config dir: %w", err)
+	}
+
+	metaData, err := json.Marshal(meta{PID: os.Getpid(), Started: time.Now().Truncate(time.Second)})
+	if err == nil {
+		err = os.WriteFile(filepath.Join(tmpDir, metaFileName), metaData, 0o600)
+	}
+	if err != nil {
+		_ = os.RemoveAll(tmpDir)
+		return "", fmt.Errorf("writing context metadata: %w", err)
+	}
+	return tmpDir, nil
+}
+
+func activate(tmpDir string) (string, error) {
+	if err := os.Setenv("AZURE_CONFIG_DIR", tmpDir); err != nil {
+		_ = os.RemoveAll(tmpDir)
+		return "", fmt.Errorf("setting AZURE_CONFIG_DIR: %w", err)
+	}
+	return tmpDir, nil
+}
+
 // Setup copies ~/.azure into a fresh private tempdir and sets
 // AZURE_CONFIG_DIR to it for this process (and any children it spawns).
 // It returns the tempdir path; the caller is responsible for removing it.
@@ -42,32 +70,26 @@ func Setup() (string, error) {
 		return "", fmt.Errorf("azure config directory %s not found (run `az login` first): %w", azureDir, err)
 	}
 
-	tmpDir, err := os.MkdirTemp("", tempDirPattern)
+	tmpDir, err := newContextDir()
 	if err != nil {
-		return "", fmt.Errorf("creating isolated config dir: %w", err)
+		return "", err
 	}
-
-	// Mark the dir as aztx-owned before anything else, so Sweep/ListContexts
-	// never see an unmarked half-built dir of ours.
-	metaData, err := json.Marshal(meta{PID: os.Getpid(), Started: time.Now().Truncate(time.Second)})
-	if err == nil {
-		err = os.WriteFile(filepath.Join(tmpDir, metaFileName), metaData, 0o600)
-	}
-	if err != nil {
-		_ = os.RemoveAll(tmpDir)
-		return "", fmt.Errorf("writing context metadata: %w", err)
-	}
-
 	if err := os.CopyFS(tmpDir, os.DirFS(azureDir)); err != nil {
 		_ = os.RemoveAll(tmpDir)
 		return "", fmt.Errorf("copying %s to isolated config dir: %w", azureDir, err)
 	}
+	return activate(tmpDir)
+}
 
-	if err := os.Setenv("AZURE_CONFIG_DIR", tmpDir); err != nil {
-		_ = os.RemoveAll(tmpDir)
-		return "", fmt.Errorf("setting AZURE_CONFIG_DIR: %w", err)
+// SetupEmpty creates a fresh, empty isolated config dir — nothing is copied
+// from ~/.azure. az behaves as never-logged-in inside it, for ephemeral
+// workflows where the login should vanish with the context.
+func SetupEmpty() (string, error) {
+	tmpDir, err := newContextDir()
+	if err != nil {
+		return "", err
 	}
-	return tmpDir, nil
+	return activate(tmpDir)
 }
 
 // SpawnShell runs $SHELL (fallback /bin/zsh) attached to the current

@@ -199,6 +199,26 @@ func TestSetupWritesMeta(t *testing.T) {
 	assert.False(t, m.Started.IsZero())
 }
 
+func TestSetupEmpty(t *testing.T) {
+	// No ~/.azure needed at all.
+	t.Setenv("HOME", t.TempDir())
+	t.Setenv("AZURE_CONFIG_DIR", "")
+	_ = os.Unsetenv("AZURE_CONFIG_DIR")
+
+	tmpDir, err := SetupEmpty()
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = os.RemoveAll(tmpDir) })
+
+	assert.Equal(t, tmpDir, os.Getenv("AZURE_CONFIG_DIR"))
+	assert.True(t, IsActive())
+
+	// Only the meta marker inside; nothing was copied.
+	entries, err := os.ReadDir(tmpDir)
+	require.NoError(t, err)
+	require.Len(t, entries, 1)
+	assert.Equal(t, metaFileName, entries[0].Name())
+}
+
 func TestSetupMissingAzureDir(t *testing.T) {
 	home := t.TempDir()
 	t.Setenv("HOME", home)

@@ -89,8 +89,15 @@ aztx -
 # no subshell). Refused inside an isolated shell.
 aztx --unset
 
-# List isolated contexts: config dir, subscription, owning PID, age.
-# '*' marks the current shell's context.
+# Start from a completely empty Azure config: nothing copied from
+# ~/.azure, no picker. az behaves as never-logged-in inside; an
+# `az login` there vanishes with the shell. Also works with exec.
+aztx --fresh
+aztx exec --fresh -- az login --use-device-code
+
+# List subscriptions ('*' = default) and isolated contexts (config
+# dir, subscription, owning PID, age; '*' = current shell's context).
+# --json emits both as indented JSON.
 aztx list
 
 # Show the current shell's context as indented JSON (exit 1 outside
