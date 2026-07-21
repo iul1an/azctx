@@ -45,9 +45,9 @@ var statusCmd = &cobra.Command{
 		}
 		out.ConfigDir = filepath.Dir(storage.Path)
 
-		cfg, err := storage.ReadConfig()
+		cfg, err := readActiveConfig()
 		if err != nil {
-			return pkgerrors.ErrReadingConfiguration(err)
+			return err
 		}
 		for _, s := range cfg.Subscriptions {
 			if s.IsDefault {
@@ -58,7 +58,9 @@ var statusCmd = &cobra.Command{
 
 		if out.Isolated {
 			out.EnvSubscription = os.Getenv("AZTX_SUBSCRIPTION")
-			matches := out.Subscription != nil && out.Subscription.Name == out.EnvSubscription
+			// Both empty (e.g. a --fresh context) is agreement too.
+			matches := (out.Subscription == nil && out.EnvSubscription == "") ||
+				(out.Subscription != nil && out.Subscription.Name == out.EnvSubscription)
 			out.EnvMatchesConfig = &matches
 			for _, c := range mustListContexts() {
 				if c.Active {

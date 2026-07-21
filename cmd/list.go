@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"text/tabwriter"
@@ -85,6 +86,9 @@ func listJSON() error {
 	return nil
 }
 
+// readActiveConfig reads the active config dir's profile. A missing
+// azureProfile.json is a valid empty state (e.g. a --fresh context before
+// the first az login), not an error.
 func readActiveConfig() (*types.Configuration, error) {
 	storage := storage.FileAdapter{}
 	if err := storage.FetchDefaultPath("azureProfile.json"); err != nil {
@@ -92,6 +96,9 @@ func readActiveConfig() (*types.Configuration, error) {
 	}
 	cfg, err := storage.ReadConfig()
 	if err != nil {
+		if errors.Is(err, pkgerrors.ErrFileDoesNotExist) {
+			return &types.Configuration{}, nil
+		}
 		return nil, pkgerrors.ErrReadingConfiguration(err)
 	}
 	return cfg, nil
