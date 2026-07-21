@@ -57,7 +57,7 @@ func (u *UserProfileFileAdapter) Write(cfg *types.Configuration) error {
 
 func (u *UserProfileFileAdapter) unmarshalConfig(data []byte, cfg *types.Configuration) error {
 	// Handle BOM (Byte Order Mark)
-	data = bytes.Replace(data, []byte("\uFEFF"), []byte(""), -1)
+	data = bytes.ReplaceAll(data, []byte("\uFEFF"), []byte(""))
 	return json.Unmarshal(data, cfg)
 }
 
