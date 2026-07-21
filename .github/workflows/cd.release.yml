@@ -2,23 +2,17 @@
 name: "Continuous Deployment: Release"
 
 on:
-  pull_request:
-    types: [closed]
+  push:
+    tags:
+      - "v*"
 
-# Allow a subsequently queued workflow run to interrupt a previous run
-concurrency:
-  group: '${{ github.workflow }} @ ${{ github.event.pull_request.head.label || github.head_ref || github.ref }}'
-  cancel-in-progress: true
+permissions:
+  contents: write
 
 jobs:
-  tag:
-    uses: ./.github/workflows/cd.tag.yml
   goreleaser:
-    needs: tag
     name: "CD: Release"
     runs-on: ubuntu-latest
-    permissions:
-      contents: write
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -28,6 +22,8 @@ jobs:
         uses: actions/setup-go@v5
         with:
           go-version: stable
+      - name: Test
+        run: go test ./...
       - name: Run GoReleaser
         uses: goreleaser/goreleaser-action@v6
         with:
@@ -36,4 +32,3 @@ jobs:
           args: release --clean --config .goreleaser.yml
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          HOMEBREW: ${{ secrets.HOMEBREW }}

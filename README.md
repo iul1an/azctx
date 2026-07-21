@@ -24,41 +24,26 @@
 > This tool is built on top of the azure-cli and fzf and requires them to be installed and configured.
 > If you use the Brew or Scoop package managers, these pre-requisites will be handled during installation.
 
-- go >=1.16.6
+- go >= 1.26 (build only)
 - azure-cli >= 2.22.1
 - fzf >= 0.20.0
 
 ## Installation
 
-### [Brew](https://brew.sh/) (Mac/Linux)
-
-```sh
-brew tap riweston/aztx
-brew install aztx
-```
-
-### [Scoop](https://scoop.sh/) (Windows)
-
-```sh
-scoop bucket add riweston https://github.com/riweston/scoop-bucket.git
-scoop update
-scoop install riweston/aztx
-```
-
-### [winget](https://learn.microsoft.com/en-us/windows/package-manager/winget/) (Windows)
-
-```sh
-winget install aztx
-```
+Linux and macOS only — the per-shell isolation relies on Unix process
+semantics ($SHELL, signals), so unlike upstream there are no Windows
+builds.
 
 ### Download Prebuilt Binary
 
-Download the latest release from the [releases page](https://github.com/riweston/aztx/releases) and add it to your PATH.
+Download the latest release from the [releases page](https://github.com/iul1an/aztx/releases) and add it to your PATH.
 
 ### Install from Source
 
 ```sh
-go install github.com/riweston/aztx
+go install github.com/iul1an/aztx@latest
+# or from a checkout:
+make install   # builds and installs to ~/bin
 ```
 
 ## Usage

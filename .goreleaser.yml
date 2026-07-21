@@ -1,65 +1,29 @@
----
 version: 2
+
+# Fork of riweston/aztx (MIT). Releases GitHub binaries only — no brew/
+# scoop/winget publishing, and no Windows builds: the per-shell isolation
+# uses Unix process semantics (signals, $SHELL).
 builds:
   - goos:
       - darwin
       - linux
-      - windows
+    goarch:
+      - amd64
+      - arm64
+    env:
+      - CGO_ENABLED=0
+
 archives:
   - formats:
-      - zip
-brews:
-  - name: aztx
-    url_template: "https://github.com/riweston/aztx/releases/download/{{ .Tag }}/{{ .ArtifactName }}"
-    repository:
-      owner: riweston
-      name: homebrew-aztx
-      token: "{{ .Env.HOMEBREW }}"
-    commit_author:
-      name: goreleaserbot
-      email: goreleaser@riweston.io
-    homepage: "https://github.com/riweston/aztx"
-    description: "This tool is a helper for azure-cli that leverages fzf for a nice interface to switch between subscription contexts."
-    license: "MIT"
-    dependencies:
-      - name: azure-cli
-      - name: fzf
-scoops:
-  - name: aztx
-    url_template: "https://github.com/riweston/aztx/releases/download/{{ .Tag }}/{{ .ArtifactName }}"
-    repository:
-      owner: riweston
-      name: scoop-bucket
-      token: "{{ .Env.HOMEBREW }}"
-    commit_author:
-      name: goreleaserbot
-      email: goreleaser@riweston.io
-    homepage: "https://github.com/riweston/aztx"
-    description: "This tool is a helper for azure-cli that leverages fzf for a nice interface to switch between subscription contexts."
-    license: "MIT"
-    depends:
-      - azure-cli
-      - fzf
-winget:
-  - name: aztx
-    url_template: "https://github.com/riweston/aztx/releases/download/{{ .Tag }}/{{ .ArtifactName }}"
-    package_identifier: "riweston.aztx"
-    repository:
-      owner: riweston
-      name: winget-pkgs
-      token: "{{ .Env.HOMEBREW }}"
-      branch: "aztx-{{ .Tag }}"
-      pull_request:
-        enabled: true
-        draft: true
-        base:
-          owner: microsoft
-          name: winget-pkgs
-          branch: main
-    commit_author:
-      name: Richard Weston
-      email: github@riweston.io
-    homepage: "https://github.com/riweston/aztx"
-    short_description: "This tool is a helper for azure-cli that leverages fzf for a nice interface to switch between subscription contexts."
-    license: "MIT"
-    publisher: riweston
+      - tar.gz
+
+checksum:
+  name_template: "checksums.txt"
+
+changelog:
+  sort: asc
+  filters:
+    exclude:
+      - "^chore"
+      - "^docs"
+      - "^test"
