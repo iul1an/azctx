@@ -11,15 +11,15 @@ import (
 )
 
 // metaFileName is the marker file written into every tempdir by Setup. It
-// both identifies the dir as aztx-owned and records who owns it.
-const metaFileName = ".aztx-meta.json"
+// both identifies the dir as azctx-owned and records who owns it.
+const metaFileName = ".azctx-meta.json"
 
 type meta struct {
 	PID     int       `json:"pid"`
 	Started time.Time `json:"started"`
 }
 
-// Context describes one isolated aztx config dir found under $TMPDIR.
+// Context describes one isolated azctx config dir found under $TMPDIR.
 type Context struct {
 	Dir          string    `json:"configDir"`
 	PID          int       `json:"pid"`
@@ -29,11 +29,11 @@ type Context struct {
 	Subscription string    `json:"subscription,omitempty"`
 }
 
-// ListContexts returns every aztx-owned tempdir, live or orphaned. Dirs
+// ListContexts returns every azctx-owned tempdir, live or orphaned. Dirs
 // matching the name pattern but lacking the meta marker are not ours and are
 // ignored.
 func ListContexts() ([]Context, error) {
-	dirs, err := filepath.Glob(filepath.Join(os.TempDir(), "aztx.*"))
+	dirs, err := filepath.Glob(filepath.Join(os.TempDir(), "azctx.*"))
 	if err != nil {
 		return nil, err
 	}
@@ -66,7 +66,7 @@ func ListContexts() ([]Context, error) {
 
 // Sweep removes orphaned contexts (owning process dead) and returns how many
 // were removed. The active context is never touched, and neither is anything
-// without an aztx meta marker. Best-effort by design.
+// without an azctx meta marker. Best-effort by design.
 func Sweep() int {
 	ctxs, err := ListContexts()
 	if err != nil {

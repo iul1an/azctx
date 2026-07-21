@@ -1,13 +1,13 @@
-# aztx - Azure-CLI Context Switcher
+# azctx - Azure-CLI Context Switcher
 
-`aztx` is a command-line tool designed to streamline the management of Azure tenant and subscription contexts. It provides an intuitive fuzzy-finder interface for switching between Azure subscriptions and tenants, making it easier to work with multiple Azure environments.
+`azctx` is a command-line tool designed to streamline the management of Azure tenant and subscription contexts. It provides an intuitive fuzzy-finder interface for switching between Azure subscriptions and tenants, making it easier to work with multiple Azure environments.
 
 > [!NOTE]
-> This is a fork of [riweston/aztx](https://github.com/riweston/aztx) that makes **per-shell isolation** the default mode of operation: switching context never mutates `~/.azure`.
+> Unlike plain `az account set`, azctx makes **per-shell isolation** the default mode of operation: switching context never mutates `~/.azure`. See [Origins](#origins).
 
 ## Features
 
-- 🐚 **Per-shell isolated contexts** — each `aztx` invocation copies `~/.azure` to a private tempdir, sets `AZURE_CONFIG_DIR`, and drops you into a subshell; the master `~/.azure` is never touched
+- 🐚 **Per-shell isolated contexts** — each `azctx` invocation copies `~/.azure` to a private tempdir, sets `AZURE_CONFIG_DIR`, and drops you into a subshell; the master `~/.azure` is never touched
 - 🔍 Fuzzy search interface for finding subscriptions and tenants
 - ⚡ Quick context switching between subscriptions
 - 🔄 Easy switching to previous context (similar to `cd -`)
@@ -16,7 +16,7 @@
 
 ## Prerequisites
 
-- azure-cli >= 2.22.1 (aztx manages its profile; the fuzzy finder itself is built in)
+- azure-cli >= 2.22.1 (azctx manages its profile; the fuzzy finder itself is built in)
 - go >= 1.26 (building from source only)
 
 ## Installation
@@ -27,12 +27,12 @@ builds.
 
 ### Download Prebuilt Binary
 
-Download the latest release from the [releases page](https://github.com/iul1an/aztx/releases) and add it to your PATH.
+Download the latest release from the [releases page](https://github.com/iul1an/azctx/releases) and add it to your PATH.
 
 ### Install from Source
 
 ```sh
-go install github.com/iul1an/aztx@latest
+go install github.com/iul1an/azctx@latest
 # or from a checkout (default /usr/local/bin; override e.g. PREFIX=$HOME for ~/bin):
 make install PREFIX=$HOME
 ```
@@ -45,43 +45,43 @@ make install PREFIX=$HOME
 # Pick a subscription and drop into a subshell scoped to it.
 # ~/.azure is copied to a tempdir and AZURE_CONFIG_DIR points at the copy,
 # so the pick never mutates your master config.
-aztx
+azctx
 
 # Inside the isolated shell:
-echo $AZURE_CONFIG_DIR   # /tmp/aztx.XXXXXXX
+echo $AZURE_CONFIG_DIR   # /tmp/azctx.XXXXXXX
 az account show          # shows the picked subscription
 
 # An isolated shell is bound to its subscription for its whole lifetime:
-# re-running aztx inside one is refused (it couldn't update the shell's
-# AZTX_SUBSCRIPTION). Exit the shell and re-run aztx, or use aztx exec.
+# re-running azctx inside one is refused (it couldn't update the shell's
+# AZCTX_SUBSCRIPTION). Exit the shell and re-run azctx, or use azctx exec.
 
 # Exit the subshell; the tempdir is cleaned up automatically.
 exit
 
 # Switch to previous subscription context
-aztx -
+azctx -
 
 # Clear the default subscription in the master ~/.azure (no picker,
 # no subshell). Refused inside an isolated shell.
-aztx --unset
+azctx --unset
 
 # Start from a completely empty Azure config: nothing copied from
 # ~/.azure, no picker. az behaves as never-logged-in inside; an
 # `az login` there vanishes with the shell. Also works with exec.
-aztx --fresh
-aztx exec --fresh -- az login --use-device-code
+azctx --fresh
+azctx exec --fresh -- az login --use-device-code
 
 # List subscriptions ('*' = default) and isolated contexts (config
 # dir, subscription, owning PID, age; '*' = current shell's context).
 # --json emits both as indented JSON.
-aztx list
+azctx list
 
 # Show the current shell's context as indented JSON (exit 1 outside
 # an isolated shell) — subscription, tenant, PID, env consistency.
-aztx status
+azctx status
 ```
 
-Every aztx invocation garbage-collects orphaned contexts: each tempdir
+Every azctx invocation garbage-collects orphaned contexts: each tempdir
 records its owning process, and dirs whose owner is gone (e.g. after a
 SIGKILL) are removed automatically on the next run.
 
@@ -89,7 +89,7 @@ SIGKILL) are removed automatically on the next run.
 
 ```sh
 # Select tenant before choosing subscription
-aztx --by-tenant
+azctx --by-tenant
 ```
 
 ### Exec Mode
@@ -98,30 +98,30 @@ aztx --by-tenant
 # Pick a subscription, run a single command in the isolated context,
 # then clean up — similar to aws-vault exec. The command's exit code
 # is propagated.
-aztx exec -- kubectl get pods
-aztx exec --by-tenant -- kubie ctx my-aks-cluster
+azctx exec -- kubectl get pods
+azctx exec --by-tenant -- kubie ctx my-aks-cluster
 
 # Skip the picker entirely with --subscription (name or ID, name is
-# case-insensitive). Also works on bare aztx.
-aztx exec --subscription "My Subscription" -- kubectl get pods
+# case-insensitive). Also works on bare azctx.
+azctx exec --subscription "My Subscription" -- kubectl get pods
 ```
 
-Inside an isolated shell, `aztx exec` without `--subscription` inherits
-that shell's subscription (via `AZTX_SUBSCRIPTION`) instead of showing
+Inside an isolated shell, `azctx exec` without `--subscription` inherits
+that shell's subscription (via `AZCTX_SUBSCRIPTION`) instead of showing
 the picker — the command still runs in its own fresh context.
 
 ### In-Place Mode
 
 ```sh
 # Mutate the master ~/.azure directly (upstream behavior): no tempdir
-# copy, no subshell. Refused inside an isolated shell like bare aztx.
-aztx --in-place
+# copy, no subshell. Refused inside an isolated shell like bare azctx.
+azctx --in-place
 ```
 
 Notes on isolation:
 
 - The subshell is `$SHELL` (fallback `/bin/zsh`).
-- The spawned shell/command gets `AZTX_SUBSCRIPTION` set to the picked
+- The spawned shell/command gets `AZCTX_SUBSCRIPTION` set to the picked
   subscription's name (like aws-vault's `AWS_VAULT`), handy for prompts
   and wrapper scripts. It is always accurate because a shell's
   subscription is immutable — re-picking inside an isolated shell is
@@ -133,7 +133,7 @@ Notes on isolation:
 
 ## Configuration
 
-Configuration is stored in `~/.aztx.yml`. The following options are available:
+Configuration is stored in `~/.azctx.yml`. The following options are available:
 
 ```yaml
 # Log level: debug, info, warn, error
@@ -144,19 +144,28 @@ by-tenant: false
 ```
 
 You can also set configuration via environment variables:
-- `AZTX_LOG_LEVEL`: Set logging level
-- `AZTX_BY_TENANT`: Enable tenant-first selection mode
-- `AZTX_SUBSCRIPTION`: Same as `--subscription`. Note the dual role:
-  aztx also *exports* this into isolated shells, which is what makes
-  nested `aztx exec` inherit the shell's subscription.
+- `AZCTX_LOG_LEVEL`: Set logging level
+- `AZCTX_BY_TENANT`: Enable tenant-first selection mode
+- `AZCTX_SUBSCRIPTION`: Same as `--subscription`. Note the dual role:
+  azctx also *exports* this into isolated shells, which is what makes
+  nested `azctx exec` inherit the shell's subscription.
+
+## Origins
+
+azctx began as a fork of [riweston/aztx](https://github.com/riweston/aztx)
+by Richard Weston (MIT) and retains its full git history. The fuzzy-finder
+picker and the `azureProfile.json` handling descend from that project; the
+per-shell isolation model, `exec`/`list`/`status`, `--fresh`, the
+subscription-binding semantics, and orphaned-context GC are original to
+azctx. azctx is not affiliated with or endorsed by the original author.
 
 ## Contributing
 
-This is an opinionated personal fork; issues and PRs are welcome, but
-features that reintroduce mutation of `~/.azure` as a default won't be
-accepted. For the original tool, see [riweston/aztx](https://github.com/riweston/aztx).
+This is an opinionated tool; issues and PRs are welcome, but features that
+reintroduce mutation of `~/.azure` as a default won't be accepted.
 
 ## License
 
-This project is licensed under the MIT License - see the LICENSE file for details.
-Original work © Richard Weston.
+This project is licensed under the MIT License - see the LICENSE file for
+details, which carries both the original author's copyright and this
+project's.

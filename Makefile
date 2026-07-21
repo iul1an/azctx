@@ -1,4 +1,4 @@
-BINARY ?= aztx
+BINARY ?= azctx
 PREFIX ?= /usr/local
 BINDIR ?= $(PREFIX)/bin
 GO     ?= go

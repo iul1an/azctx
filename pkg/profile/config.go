@@ -7,11 +7,11 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/ktr0731/go-fuzzyfinder"
-	pkgerrors "github.com/riweston/aztx/pkg/errors"
-	"github.com/riweston/aztx/pkg/state"
-	"github.com/riweston/aztx/pkg/subscription"
-	"github.com/riweston/aztx/pkg/tenant"
-	"github.com/riweston/aztx/pkg/types"
+	pkgerrors "github.com/iul1an/azctx/pkg/errors"
+	"github.com/iul1an/azctx/pkg/state"
+	"github.com/iul1an/azctx/pkg/subscription"
+	"github.com/iul1an/azctx/pkg/tenant"
+	"github.com/iul1an/azctx/pkg/types"
 )
 
 type ConfigurationAdapter struct {

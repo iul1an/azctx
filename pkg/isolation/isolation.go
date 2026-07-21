@@ -16,20 +16,20 @@ import (
 	"time"
 )
 
-const tempDirPattern = "aztx.*"
+const tempDirPattern = "azctx.*"
 
 // IsActive reports whether the current process is already running inside an
-// aztx isolated context, i.e. AZURE_CONFIG_DIR points at an aztx tempdir.
+// azctx isolated context, i.e. AZURE_CONFIG_DIR points at an azctx tempdir.
 func IsActive() bool {
 	dir := os.Getenv("AZURE_CONFIG_DIR")
 	if dir == "" {
 		return false
 	}
-	prefix := filepath.Join(os.TempDir(), "aztx.")
+	prefix := filepath.Join(os.TempDir(), "azctx.")
 	return strings.HasPrefix(dir, prefix)
 }
 
-// newContextDir creates a private tempdir with the aztx meta marker written
+// newContextDir creates a private tempdir with the azctx meta marker written
 // before anything else, so Sweep/ListContexts never see an unmarked
 // half-built dir of ours.
 func newContextDir() (string, error) {
@@ -96,7 +96,7 @@ func SetupEmpty() (string, error) {
 // terminal, inheriting the environment (including AZURE_CONFIG_DIR set by
 // Setup). It blocks until the shell exits so the caller's deferred cleanup
 // can remove the tempdir. The shell's own exit status is not treated as an
-// aztx error.
+// azctx error.
 func SpawnShell() error {
 	shell := os.Getenv("SHELL")
 	if shell == "" {

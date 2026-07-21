@@ -1,4 +1,4 @@
-// Package types provides the core data structures and models used throughout the aztx application.
+// Package types provides the core data structures and models used throughout the azctx application.
 // It defines the configuration, tenant, and subscription types that represent Azure resources.
 package types
 
@@ -6,7 +6,7 @@ import (
 	"encoding/json"
 
 	"github.com/google/uuid"
-	"github.com/riweston/aztx/pkg/errors"
+	"github.com/iul1an/azctx/pkg/errors"
 )
 
 // Configuration represents the root configuration structure for Azure profiles.

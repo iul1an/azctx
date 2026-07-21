@@ -4,7 +4,7 @@ package profile
 
 import (
 	"github.com/google/uuid"
-	"github.com/riweston/aztx/pkg/types"
+	"github.com/iul1an/azctx/pkg/types"
 )
 
 // StorageAdapter defines the interface for configuration storage operations.

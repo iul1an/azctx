@@ -4,13 +4,13 @@ import (
 	"fmt"
 	"os"
 
-	pkgerrors "github.com/riweston/aztx/pkg/errors"
-	"github.com/riweston/aztx/pkg/isolation"
+	pkgerrors "github.com/iul1an/azctx/pkg/errors"
+	"github.com/iul1an/azctx/pkg/isolation"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 )
 
-// ExitCodeError carries a child process's exit code up to main so aztx can
+// ExitCodeError carries a child process's exit code up to main so azctx can
 // exit with the same status without printing an error of its own.
 type ExitCodeError struct{ Code int }
 
@@ -28,8 +28,8 @@ exits. The command's exit code is propagated.
 
 Similar to aws-vault exec, e.g.:
 
-  aztx exec -- kubectl get pods
-  aztx exec --by-tenant -- kubie ctx my-aks-cluster`,
+  azctx exec -- kubectl get pods
+  azctx exec --by-tenant -- kubie ctx my-aks-cluster`,
 	Args:          cobra.MinimumNArgs(1),
 	SilenceUsage:  true,
 	SilenceErrors: true,
@@ -66,7 +66,7 @@ Similar to aws-vault exec, e.g.:
 		if picked == "" {
 			return ExitCodeError{Code: 1}
 		}
-		_ = os.Setenv("AZTX_SUBSCRIPTION", picked)
+		_ = os.Setenv("AZCTX_SUBSCRIPTION", picked)
 
 		code, err := isolation.RunCommand(args)
 		if err != nil {

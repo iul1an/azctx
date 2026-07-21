@@ -7,8 +7,8 @@ import (
 	"os"
 	"path/filepath"
 
-	pkgerrors "github.com/riweston/aztx/pkg/errors"
-	"github.com/riweston/aztx/pkg/types"
+	pkgerrors "github.com/iul1an/azctx/pkg/errors"
+	"github.com/iul1an/azctx/pkg/types"
 )
 
 // FileAdapter handles file read and write operations.

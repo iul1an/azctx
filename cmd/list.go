@@ -8,10 +8,10 @@ import (
 	"text/tabwriter"
 	"time"
 
-	pkgerrors "github.com/riweston/aztx/pkg/errors"
-	"github.com/riweston/aztx/pkg/isolation"
-	"github.com/riweston/aztx/pkg/storage"
-	"github.com/riweston/aztx/pkg/types"
+	pkgerrors "github.com/iul1an/azctx/pkg/errors"
+	"github.com/iul1an/azctx/pkg/isolation"
+	"github.com/iul1an/azctx/pkg/storage"
+	"github.com/iul1an/azctx/pkg/types"
 	"github.com/spf13/cobra"
 )
 
@@ -19,14 +19,14 @@ import (
 // telling the user when it did something. Best-effort.
 func sweepOrphans() {
 	if n := isolation.Sweep(); n > 0 {
-		fmt.Fprintf(os.Stderr, "cleaned up %d orphaned aztx context(s)\n", n)
+		fmt.Fprintf(os.Stderr, "cleaned up %d orphaned azctx context(s)\n", n)
 	}
 }
 
 var listCmd = &cobra.Command{
 	Use:           "list",
 	Aliases:       []string{"ls"},
-	Short:         "List subscriptions and isolated aztx contexts",
+	Short:         "List subscriptions and isolated azctx contexts",
 	Args:          cobra.NoArgs,
 	SilenceUsage:  true,
 	SilenceErrors: true,

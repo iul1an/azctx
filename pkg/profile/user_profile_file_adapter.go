@@ -5,10 +5,10 @@ import (
 	"encoding/json"
 
 	"github.com/google/uuid"
-	"github.com/riweston/aztx/pkg/tenant"
+	"github.com/iul1an/azctx/pkg/tenant"
 
-	"github.com/riweston/aztx/pkg/storage"
-	"github.com/riweston/aztx/pkg/types"
+	"github.com/iul1an/azctx/pkg/storage"
+	"github.com/iul1an/azctx/pkg/types"
 )
 
 type UserProfileFileAdapter struct {

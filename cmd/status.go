@@ -7,9 +7,9 @@ import (
 	"path/filepath"
 	"time"
 
-	pkgerrors "github.com/riweston/aztx/pkg/errors"
-	"github.com/riweston/aztx/pkg/isolation"
-	"github.com/riweston/aztx/pkg/storage"
+	pkgerrors "github.com/iul1an/azctx/pkg/errors"
+	"github.com/iul1an/azctx/pkg/isolation"
+	"github.com/iul1an/azctx/pkg/storage"
 	"github.com/spf13/cobra"
 )
 
@@ -23,7 +23,7 @@ type statusOutput struct {
 	Isolated         bool                `json:"isolated"`
 	ConfigDir        string              `json:"configDir,omitempty"`
 	Subscription     *statusSubscription `json:"subscription"`
-	EnvSubscription  string              `json:"aztxSubscriptionEnv,omitempty"`
+	EnvSubscription  string              `json:"azctxSubscriptionEnv,omitempty"`
 	EnvMatchesConfig *bool               `json:"envMatchesConfig,omitempty"`
 	PID              int                 `json:"pid,omitempty"`
 	Started          *time.Time          `json:"started,omitempty"`
@@ -32,7 +32,7 @@ type statusOutput struct {
 var statusCmd = &cobra.Command{
 	Use:           "status",
 	Short:         "Show the current shell's Azure context as JSON",
-	Long:          "Prints the active context as indented JSON. Exits 1 when not inside an aztx isolated shell.",
+	Long:          "Prints the active context as indented JSON. Exits 1 when not inside an azctx isolated shell.",
 	Args:          cobra.NoArgs,
 	SilenceUsage:  true,
 	SilenceErrors: true,
@@ -57,7 +57,7 @@ var statusCmd = &cobra.Command{
 		}
 
 		if out.Isolated {
-			out.EnvSubscription = os.Getenv("AZTX_SUBSCRIPTION")
+			out.EnvSubscription = os.Getenv("AZCTX_SUBSCRIPTION")
 			// Both empty (e.g. a --fresh context) is agreement too.
 			matches := (out.Subscription == nil && out.EnvSubscription == "") ||
 				(out.Subscription != nil && out.Subscription.Name == out.EnvSubscription)

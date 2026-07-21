@@ -26,7 +26,7 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/riweston/aztx/cmd"
+	"github.com/iul1an/azctx/cmd"
 )
 
 func main() {

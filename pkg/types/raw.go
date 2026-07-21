@@ -2,7 +2,7 @@ package types
 
 import "encoding/json"
 
-// azureProfile.json is owned by the Azure CLI and contains fields aztx knows
+// azureProfile.json is owned by the Azure CLI and contains fields azctx knows
 // nothing about (environmentName, tenantDefaultDomain, ...). To avoid
 // corrupting the profile on rewrite (upstream issue #36), Configuration,
 // Subscription and Tenant capture the raw JSON they were unmarshaled from

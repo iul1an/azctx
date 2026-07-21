@@ -1,5 +1,7 @@
 version: 2
 
+project_name: azctx
+
 # Fork of riweston/aztx (MIT). Releases GitHub binaries only — no brew/
 # scoop/winget publishing, and no Windows builds: the per-shell isolation
 # uses Unix process semantics (signals, $SHELL).

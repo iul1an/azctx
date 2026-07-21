@@ -1,4 +1,4 @@
-// Package errors provides a centralized error handling system for the aztx application.
+// Package errors provides a centralized error handling system for the azctx application.
 // It defines custom error types and error wrapping functions to provide consistent
 // error handling and reporting across the application.
 package errors
@@ -32,7 +32,7 @@ var (
 	// Context related errors
 
 	// ErrNoPreviousContext is returned when attempting to switch to a previous context that doesn't exist
-	ErrNoPreviousContext = errors.New("no previous context, check ~/.aztx.yml is present and has content")
+	ErrNoPreviousContext = errors.New("no previous context, check ~/.azctx.yml is present and has content")
 
 	// Subscription related errors
 

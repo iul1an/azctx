@@ -52,7 +52,7 @@ func NewLogger(level string) *DefaultLogger {
 		ReportCaller:    true,
 		ReportTimestamp: true,
 		TimeFormat:      time.Kitchen,
-		Prefix:          "aztx",
+		Prefix:          "azctx",
 	})
 
 	return &DefaultLogger{

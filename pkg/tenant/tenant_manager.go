@@ -4,9 +4,9 @@ import (
 	"fmt"
 
 	"github.com/google/uuid"
-	pkgerrors "github.com/riweston/aztx/pkg/errors"
-	"github.com/riweston/aztx/pkg/finder"
-	"github.com/riweston/aztx/pkg/types"
+	pkgerrors "github.com/iul1an/azctx/pkg/errors"
+	"github.com/iul1an/azctx/pkg/finder"
+	"github.com/iul1an/azctx/pkg/types"
 )
 
 type Manager struct {

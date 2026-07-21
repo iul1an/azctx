@@ -19,7 +19,7 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.
 */
-// Package cmd provides the command-line interface for the aztx application.
+// Package cmd provides the command-line interface for the azctx application.
 // It implements the core functionality for switching between Azure tenants and subscriptions
 // using a fuzzy finder interface.
 package cmd
@@ -31,14 +31,14 @@ import (
 	"strings"
 
 	"github.com/ktr0731/go-fuzzyfinder"
-	pkgerrors "github.com/riweston/aztx/pkg/errors"
-	"github.com/riweston/aztx/pkg/isolation"
-	"github.com/riweston/aztx/pkg/profile"
-	"github.com/riweston/aztx/pkg/state"
-	"github.com/riweston/aztx/pkg/storage"
-	"github.com/riweston/aztx/pkg/subscription"
-	"github.com/riweston/aztx/pkg/tenant"
-	"github.com/riweston/aztx/pkg/types"
+	pkgerrors "github.com/iul1an/azctx/pkg/errors"
+	"github.com/iul1an/azctx/pkg/isolation"
+	"github.com/iul1an/azctx/pkg/profile"
+	"github.com/iul1an/azctx/pkg/state"
+	"github.com/iul1an/azctx/pkg/storage"
+	"github.com/iul1an/azctx/pkg/subscription"
+	"github.com/iul1an/azctx/pkg/tenant"
+	"github.com/iul1an/azctx/pkg/types"
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
@@ -46,9 +46,9 @@ import (
 
 // rootCmd represents the base command when called without any subcommands
 var rootCmd = &cobra.Command{
-	Use:   "aztx",
+	Use:   "azctx",
 	Short: "Azure Tenant Context Switcher",
-	Long: `aztx is a command line tool that helps you switch between Azure tenants and subscriptions.
+	Long: `azctx is a command line tool that helps you switch between Azure tenants and subscriptions.
 It provides a fuzzy finder interface to select subscriptions and remembers your last context.`,
 	Args:          cobra.MaximumNArgs(1),
 	SilenceUsage:  true,
@@ -58,12 +58,12 @@ It provides a fuzzy finder interface to select subscriptions and remembers your 
 
 		// An isolated shell is bound to the subscription it was started
 		// with: a re-pick inside it could not update the shell's exported
-		// AZTX_SUBSCRIPTION, so tools reading it would be lied to. There is
+		// AZCTX_SUBSCRIPTION, so tools reading it would be lied to. There is
 		// deliberately no override.
 		if isolation.IsActive() {
 			return fmt.Errorf(
-				"already inside an aztx isolated shell (AZTX_SUBSCRIPTION=%q); exit it and re-run aztx, or use aztx exec for a one-off command in another context",
-				os.Getenv("AZTX_SUBSCRIPTION"))
+				"already inside an azctx isolated shell (AZCTX_SUBSCRIPTION=%q); exit it and re-run azctx, or use azctx exec for a one-off command in another context",
+				os.Getenv("AZCTX_SUBSCRIPTION"))
 		}
 
 		// Unset mode: clear the default subscription in ~/.azure, no picker,
@@ -108,7 +108,7 @@ It provides a fuzzy finder interface to select subscriptions and remembers your 
 		if err != nil || picked == "" {
 			return err
 		}
-		_ = os.Setenv("AZTX_SUBSCRIPTION", picked)
+		_ = os.Setenv("AZCTX_SUBSCRIPTION", picked)
 		return isolation.SpawnShell()
 	},
 }
@@ -251,7 +251,7 @@ func init() {
 }
 
 // initConfig reads in config file and ENV variables if set.
-// It looks for a .aztx.yml file in the user's home directory and creates one if it doesn't exist.
+// It looks for a .azctx.yml file in the user's home directory and creates one if it doesn't exist.
 // The function will exit with status code 1 if there are any errors accessing the home directory
 // or handling the configuration file.
 func initConfig() {
@@ -264,15 +264,15 @@ func initConfig() {
 
 	viper.AddConfigPath(home)
 	viper.SetConfigType("yml")
-	viper.SetConfigName(".aztx")
-	viper.SetEnvPrefix("AZTX")
+	viper.SetConfigName(".azctx")
+	viper.SetEnvPrefix("AZCTX")
 	viper.SetEnvKeyReplacer(strings.NewReplacer("-", "_"))
 	viper.AutomaticEnv()
 
 	// Create config if it doesn't exist
 	if err := viper.ReadInConfig(); err != nil {
 		if _, ok := err.(viper.ConfigFileNotFoundError); ok {
-			if err := viper.SafeWriteConfigAs(home + "/.aztx.yml"); err != nil {
+			if err := viper.SafeWriteConfigAs(home + "/.azctx.yml"); err != nil {
 				logger := profile.NewLogger("error")
 				logger.Error("Failed to write config: %v", err)
 				os.Exit(1)

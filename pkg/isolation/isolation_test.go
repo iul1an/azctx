@@ -18,13 +18,13 @@ func TestIsActive(t *testing.T) {
 		assert.False(t, IsActive())
 	})
 
-	t.Run("false for a non-aztx config dir", func(t *testing.T) {
+	t.Run("false for a non-azctx config dir", func(t *testing.T) {
 		t.Setenv("AZURE_CONFIG_DIR", "/some/other/dir")
 		assert.False(t, IsActive())
 	})
 
-	t.Run("true for an aztx tempdir", func(t *testing.T) {
-		t.Setenv("AZURE_CONFIG_DIR", filepath.Join(os.TempDir(), "aztx.123456"))
+	t.Run("true for an azctx tempdir", func(t *testing.T) {
+		t.Setenv("AZURE_CONFIG_DIR", filepath.Join(os.TempDir(), "azctx.123456"))
 		assert.True(t, IsActive())
 	})
 }
@@ -110,7 +110,7 @@ const deadPID = 99999999
 
 func makeFakeContext(t *testing.T, pid int, withMeta bool, sub string) string {
 	t.Helper()
-	dir, err := os.MkdirTemp("", "aztx.*")
+	dir, err := os.MkdirTemp("", "azctx.*")
 	require.NoError(t, err)
 	t.Cleanup(func() { _ = os.RemoveAll(dir) })
 	if withMeta {

@@ -1,4 +1,4 @@
-module github.com/riweston/aztx
+module github.com/iul1an/azctx
 
 go 1.26
 

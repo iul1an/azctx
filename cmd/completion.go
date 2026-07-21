@@ -1,7 +1,7 @@
 package cmd
 
 import (
-	"github.com/riweston/aztx/pkg/storage"
+	"github.com/iul1an/azctx/pkg/storage"
 	"github.com/spf13/cobra"
 )
 

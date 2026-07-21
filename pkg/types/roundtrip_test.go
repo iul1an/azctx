@@ -8,7 +8,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// Regression test for upstream issue #36: aztx must not drop fields it
+// Regression test for upstream issue #36: azctx must not drop fields it
 // doesn't know about (environmentName, tenantDefaultDomain, ...) when it
 // rewrites azureProfile.json, or the Azure CLI breaks.
 func TestConfigurationRoundTripPreservesUnknownFields(t *testing.T) {
