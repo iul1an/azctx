@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"encoding/json"
 	"fmt"
 	"os"
 	"text/tabwriter"
@@ -9,6 +10,7 @@ import (
 	pkgerrors "github.com/riweston/aztx/pkg/errors"
 	"github.com/riweston/aztx/pkg/isolation"
 	"github.com/riweston/aztx/pkg/storage"
+	"github.com/riweston/aztx/pkg/types"
 	"github.com/spf13/cobra"
 )
 
@@ -28,6 +30,9 @@ var listCmd = &cobra.Command{
 	SilenceUsage:  true,
 	SilenceErrors: true,
 	RunE: func(cmd *cobra.Command, args []string) error {
+		if asJSON, _ := cmd.Flags().GetBool("json"); asJSON {
+			return listJSON()
+		}
 		if err := listSubscriptions(); err != nil {
 			return err
 		}
@@ -36,16 +41,68 @@ var listCmd = &cobra.Command{
 	},
 }
 
-// listSubscriptions prints the subscriptions of the active Azure config dir
-// (honoring AZURE_CONFIG_DIR); '*' marks the default.
-func listSubscriptions() error {
+type listSubscriptionEntry struct {
+	Name      string `json:"name"`
+	ID        string `json:"id"`
+	TenantID  string `json:"tenantId"`
+	IsDefault bool   `json:"isDefault"`
+}
+
+func listJSON() error {
+	cfg, err := readActiveConfig()
+	if err != nil {
+		return err
+	}
+	ctxs, err := isolation.ListContexts()
+	if err != nil {
+		return err
+	}
+	for i := range ctxs {
+		ctxs[i].Started = ctxs[i].Started.Truncate(time.Second)
+	}
+
+	out := struct {
+		Subscriptions    []listSubscriptionEntry `json:"subscriptions"`
+		IsolatedContexts []isolation.Context     `json:"isolatedContexts"`
+	}{
+		Subscriptions:    []listSubscriptionEntry{},
+		IsolatedContexts: ctxs,
+	}
+	if out.IsolatedContexts == nil {
+		out.IsolatedContexts = []isolation.Context{}
+	}
+	for _, s := range cfg.Subscriptions {
+		out.Subscriptions = append(out.Subscriptions, listSubscriptionEntry{
+			Name: s.Name, ID: s.ID.String(), TenantID: s.TenantID.String(), IsDefault: s.IsDefault,
+		})
+	}
+
+	data, err := json.MarshalIndent(out, "", "  ")
+	if err != nil {
+		return err
+	}
+	fmt.Println(string(data))
+	return nil
+}
+
+func readActiveConfig() (*types.Configuration, error) {
 	storage := storage.FileAdapter{}
 	if err := storage.FetchDefaultPath("azureProfile.json"); err != nil {
-		return pkgerrors.ErrFileOperation("fetching default profile path", err)
+		return nil, pkgerrors.ErrFileOperation("fetching default profile path", err)
 	}
 	cfg, err := storage.ReadConfig()
 	if err != nil {
-		return pkgerrors.ErrReadingConfiguration(err)
+		return nil, pkgerrors.ErrReadingConfiguration(err)
+	}
+	return cfg, nil
+}
+
+// listSubscriptions prints the subscriptions of the active Azure config dir
+// (honoring AZURE_CONFIG_DIR); '*' marks the default.
+func listSubscriptions() error {
+	cfg, err := readActiveConfig()
+	if err != nil {
+		return err
 	}
 
 	fmt.Println("SUBSCRIPTIONS")
@@ -111,5 +168,6 @@ func formatAge(d time.Duration) string {
 }
 
 func init() {
+	listCmd.Flags().Bool("json", false, "Output as indented JSON")
 	rootCmd.AddCommand(listCmd)
 }
