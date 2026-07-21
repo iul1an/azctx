@@ -120,7 +120,7 @@ It provides a fuzzy finder interface to select subscriptions and remembers your 
 // subscription. It returns "" when the user aborted the fuzzy finder without
 // picking anything.
 func pickContext(args []string) (string, error) {
-	finder.Configure(viper.GetStringSlice("picker.options"))
+	finder.Configure(viper.GetStringSlice("picker.options"), viper.GetBool("picker.preview"))
 
 	stateManager := state.NewFileStateManager()
 	storage := storage.FileAdapter{}

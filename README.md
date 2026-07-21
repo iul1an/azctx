@@ -176,6 +176,7 @@ by-tenant: false
 # FZF_DEFAULT_OPTS is honored too, so an existing fzf theme just works.
 #picker:
 #  options: ["--height=~60%", "--border=rounded", "--prompt=azctx> "]
+#  preview: false   # true shows the highlighted subscription's details
 ```
 
 You can also set configuration via environment variables:

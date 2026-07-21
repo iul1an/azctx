@@ -14,15 +14,27 @@ type Manager struct {
 	types.BaseManager
 }
 
+func subscriptionDisplay(s types.Subscription) string {
+	return fmt.Sprintf("%s (%s)", s.Name, s.ID)
+}
+
+func subscriptionPreview(s types.Subscription) string {
+	def := "no"
+	if s.IsDefault {
+		def = "yes"
+	}
+	return fmt.Sprintf(
+		"Name:        %s\nID:          %s\nTenant:      %s\nEnvironment: %s\nState:       %s\nDefault:     %s",
+		s.Name, s.ID, s.TenantID, s.EnvironmentName, s.State, def)
+}
+
 // FindSubscriptionIndex uses fuzzy finding to let user select a subscription
 func (sm *Manager) FindSubscriptionIndex() (int, error) {
 	if len(sm.Configuration.Subscriptions) == 0 {
 		return -1, pkgerrors.ErrSubscriptionNotFound
 	}
 
-	sub, err := finder.Fuzzy(sm.Configuration.Subscriptions, func(s types.Subscription) string {
-		return fmt.Sprintf("%s (%s)", s.Name, s.ID)
-	})
+	sub, err := finder.FuzzyPreview(sm.Configuration.Subscriptions, subscriptionDisplay, subscriptionPreview)
 	if err != nil {
 		return -1, err
 	}
@@ -77,7 +89,5 @@ func (sm *Manager) FindSubscriptionIndexByTenant(tenantID uuid.UUID) (*types.Sub
 		return nil, err
 	}
 
-	return finder.Fuzzy(subs, func(s types.Subscription) string {
-		return fmt.Sprintf("%s (%s)", s.Name, s.ID)
-	})
+	return finder.FuzzyPreview(subs, subscriptionDisplay, subscriptionPreview)
 }

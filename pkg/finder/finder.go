@@ -16,12 +16,18 @@ import (
 // ErrAbort is returned when the user aborts the picker without choosing.
 var ErrAbort = errors.New("abort")
 
-// configured holds extra fzf options from the user's config (picker.options).
-var configured []string
+// configured holds extra fzf options from the user's config (picker.options);
+// previewEnabled gates the details preview pane (picker.preview, default off).
+var (
+	configured     []string
+	previewEnabled bool
+)
 
-// Configure sets additional fzf options for all subsequent Fuzzy calls.
-func Configure(options []string) {
+// Configure sets additional fzf options and the preview toggle for all
+// subsequent Fuzzy calls.
+func Configure(options []string, preview bool) {
 	configured = options
+	previewEnabled = preview
 }
 
 // IDGetter is an interface that both Tenant and Subscription implement
@@ -33,14 +39,43 @@ type IDGetter interface {
 // The picker renders inline (adaptive height, at most 40%% of the screen) and
 // honors FZF_DEFAULT_OPTS plus the user's picker.options from the config.
 func Fuzzy[T any](items []T, displayFunc func(T) string) (*T, error) {
+	return run(items, displayFunc, nil)
+}
+
+// FuzzyPreview is Fuzzy with a preview pane rendering previewFunc's text for
+// the highlighted item. Users can restyle or disable it via picker.options
+// (--preview-window, or --preview=” to turn it off).
+func FuzzyPreview[T any](items []T, displayFunc, previewFunc func(T) string) (*T, error) {
+	return run(items, displayFunc, previewFunc)
+}
+
+// escapePreview makes multi-line preview text safe to embed in a
+// tab-delimited entry line; printf '%b' in the preview command re-expands it.
+func escapePreview(s string) string {
+	s = strings.ReplaceAll(s, "\\", "\\\\")
+	s = strings.ReplaceAll(s, "\t", "    ")
+	return strings.ReplaceAll(s, "\n", "\\n")
+}
+
+func run[T any](items []T, displayFunc, previewFunc func(T) string) (*T, error) {
 	if len(items) == 0 {
 		return nil, fmt.Errorf("no items to select from")
 	}
+	if !previewEnabled {
+		previewFunc = nil
+	}
 
-	args := append([]string{"--height=~40%", "--layout=reverse"}, configured...)
-	// Non-negotiable tail: entries are fed as "<index>\t<display>" so the
-	// pick maps back to an item even when display strings collide.
-	args = append(args, "--delimiter=\t", "--with-nth=2..", "--no-multi")
+	// Adaptive height shrinks to the item count, which would clip the
+	// preview pane — use a fixed fraction when a preview is shown.
+	args := []string{"--height=~40%", "--layout=reverse"}
+	if previewFunc != nil {
+		args = []string{"--height=40%", "--layout=reverse",
+			"--preview", "printf '%b' {3}", "--preview-window", "right,55%"}
+	}
+	args = append(args, configured...)
+	// Non-negotiable tail: entries are fed as "<index>\t<display>[\t<preview>]"
+	// so the pick maps back to an item even when display strings collide.
+	args = append(args, "--delimiter=\t", "--with-nth=2", "--no-multi")
 
 	options, err := fzf.ParseOptions(true, args)
 	if err != nil {
@@ -51,7 +86,11 @@ func Fuzzy[T any](items []T, displayFunc func(T) string) (*T, error) {
 	go func() {
 		defer close(input)
 		for i := range items {
-			input <- fmt.Sprintf("%d\t%s", i, displayFunc(items[i]))
+			line := fmt.Sprintf("%d\t%s", i, displayFunc(items[i]))
+			if previewFunc != nil {
+				line += "\t" + escapePreview(previewFunc(items[i]))
+			}
+			input <- line
 		}
 	}()
 	output := make(chan string, len(items))
