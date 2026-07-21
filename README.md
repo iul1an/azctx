@@ -88,7 +88,19 @@ aztx -
 # Clear the default subscription in the master ~/.azure (no picker,
 # no subshell). Refused inside an isolated shell.
 aztx --unset
+
+# List isolated contexts: config dir, subscription, owning PID, age.
+# '*' marks the current shell's context.
+aztx list
+
+# Show the current shell's context as indented JSON (exit 1 outside
+# an isolated shell) — subscription, tenant, PID, env consistency.
+aztx status
 ```
+
+Every aztx invocation garbage-collects orphaned contexts: each tempdir
+records its owning process, and dirs whose owner is gone (e.g. after a
+SIGKILL) are removed automatically on the next run.
 
 ### Tenant-First Selection
 

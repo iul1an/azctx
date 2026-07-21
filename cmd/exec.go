@@ -33,6 +33,8 @@ Similar to aws-vault exec, e.g.:
 	SilenceUsage:  true,
 	SilenceErrors: true,
 	RunE: func(cmd *cobra.Command, args []string) error {
+		sweepOrphans()
+
 		tmpDir, err := isolation.Setup()
 		if err != nil {
 			return pkgerrors.ErrOperation("setting up isolated config", err)

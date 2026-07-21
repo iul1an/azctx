@@ -4,6 +4,7 @@
 package isolation
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	"os"
@@ -12,6 +13,7 @@ import (
 	"path/filepath"
 	"strings"
 	"syscall"
+	"time"
 )
 
 const tempDirPattern = "aztx.*"
@@ -43,6 +45,17 @@ func Setup() (string, error) {
 	tmpDir, err := os.MkdirTemp("", tempDirPattern)
 	if err != nil {
 		return "", fmt.Errorf("creating isolated config dir: %w", err)
+	}
+
+	// Mark the dir as aztx-owned before anything else, so Sweep/ListContexts
+	// never see an unmarked half-built dir of ours.
+	metaData, err := json.Marshal(meta{PID: os.Getpid(), Started: time.Now()})
+	if err == nil {
+		err = os.WriteFile(filepath.Join(tmpDir, metaFileName), metaData, 0o600)
+	}
+	if err != nil {
+		_ = os.RemoveAll(tmpDir)
+		return "", fmt.Errorf("writing context metadata: %w", err)
 	}
 
 	if err := os.CopyFS(tmpDir, os.DirFS(azureDir)); err != nil {

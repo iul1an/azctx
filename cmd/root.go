@@ -54,6 +54,8 @@ It provides a fuzzy finder interface to select subscriptions and remembers your 
 	SilenceUsage:  true,
 	SilenceErrors: true,
 	RunE: func(cmd *cobra.Command, args []string) error {
+		sweepOrphans()
+
 		// An isolated shell is bound to the subscription it was started
 		// with: a re-pick inside it could not update the shell's exported
 		// AZTX_SUBSCRIPTION, so tools reading it would be lied to. There is
