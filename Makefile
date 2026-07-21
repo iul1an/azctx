@@ -5,7 +5,9 @@ GO     ?= go
 
 .DEFAULT_GOAL := help
 
-.PHONY: help all build install uninstall test lint clean
+MAKEPKG_TMP := $(or $(TMPDIR),/tmp)/azctx-makepkg
+
+.PHONY: help all build install uninstall test lint clean arch-build arch-install updatesums clean-arch
 
 help:
 	@echo "azctx — Azure-CLI context switcher"
@@ -17,6 +19,9 @@ help:
 	@echo "  test        Run go test ./..."
 	@echo "  lint        Run golangci-lint"
 	@echo "  clean       Remove build artifacts"
+	@echo "  arch-build     Build an Arch Linux package (.pkg.tar.zst)"
+	@echo "  arch-install   Build and install the Arch package with pacman"
+	@echo "  updatesums     Refresh sha256sums in PKGBUILD (needs pacman-contrib)"
 	@echo ""
 	@echo "Examples:"
 	@echo "  make install                       # /usr/local/bin (may need sudo)"
@@ -41,6 +46,19 @@ test:
 lint:
 	golangci-lint run
 
-clean:
+arch-build:
+	BUILDDIR=$(MAKEPKG_TMP) SRCDEST=$(MAKEPKG_TMP) PKGDEST=$(CURDIR) makepkg -f
+
+arch-install:
+	BUILDDIR=$(MAKEPKG_TMP) SRCDEST=$(MAKEPKG_TMP) PKGDEST=$(CURDIR) makepkg -sif
+
+updatesums:
+	updpkgsums
+
+clean-arch:
+	rm -f *.pkg.tar.zst azctx-*.tar.gz
+	rm -rf $(MAKEPKG_TMP)
+
+clean: clean-arch
 	rm -f $(BINARY)
 	rm -rf dist

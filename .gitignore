@@ -114,3 +114,5 @@ dist/
 
 # Build artifacts
 /azctx
+*.pkg.tar.zst
+/azctx-*.tar.gz

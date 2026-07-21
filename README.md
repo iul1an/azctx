@@ -30,6 +30,14 @@ semantics (`$SHELL`, signals), so there are no Windows builds.
 brew install iul1an/azctx/azctx
 ```
 
+### Arch Linux
+
+```sh
+# from a checkout: builds a package from the latest release tag and
+# installs it with pacman (binary, completions, license)
+make arch-install
+```
+
 ### Download Prebuilt Binary
 
 Download the latest release from the [releases page](https://github.com/iul1an/azctx/releases) and add it to your PATH.
