@@ -37,6 +37,23 @@ go install github.com/iul1an/azctx@latest
 make install PREFIX=$HOME
 ```
 
+### Shell Completion
+
+Completions for bash, zsh, fish, and powershell are built in:
+
+```sh
+# zsh: write into any directory on your $fpath
+azctx completion zsh > ~/.zsh/completions/_azctx
+
+# bash
+azctx completion bash > /etc/bash_completion.d/azctx
+```
+
+Flag values complete too: `--subscription <Tab>` offers the live
+subscription names from your active profile, and `--log-level <Tab>` its
+four levels. The generated script delegates to the binary at runtime, so
+new subcommands and flags are picked up without regenerating the file.
+
 ## Usage
 
 ### Basic Subscription Switching
@@ -133,14 +150,27 @@ Notes on isolation:
 
 ## Configuration
 
-Configuration is stored in `~/.azctx.yml`. The following options are available:
+Configuration is stored in `~/.azctx.yml`. Every flag can be set there
+(precedence: flag > `AZCTX_*` environment variable > config file):
 
 ```yaml
 # Log level: debug, info, warn, error
 log-level: info
 
-# by-tenant: true, false
+# Always pick the tenant before the subscription
 by-tenant: false
+
+# Always select this subscription (name or ID) — disables the picker
+#subscription: "My Subscription"
+
+# Always start from an empty config (ephemeral-by-default workflow)
+#fresh: false
+
+# Careful with these two as persistent settings:
+# in-place: true reverts to upstream's mutate-~/.azure behavior;
+# unset: true makes every bare azctx run clear the default and exit.
+#in-place: false
+#unset: false
 ```
 
 You can also set configuration via environment variables:
