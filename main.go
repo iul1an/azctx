@@ -25,11 +25,35 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"runtime/debug"
 
 	"github.com/iul1an/azctx/cmd"
 )
 
+// version is set at build time via -ldflags "-X main.version=...".
+var version string
+
+// resolveVersion falls back to Go module/VCS metadata for builds that did
+// not inject a version (plain go install or go build).
+func resolveVersion() string {
+	if version != "" {
+		return version
+	}
+	if bi, ok := debug.ReadBuildInfo(); ok {
+		if v := bi.Main.Version; v != "" && v != "(devel)" {
+			return v
+		}
+		for _, kv := range bi.Settings {
+			if kv.Key == "vcs.revision" && len(kv.Value) >= 7 {
+				return "rev-" + kv.Value[:7]
+			}
+		}
+	}
+	return "dev"
+}
+
 func main() {
+	cmd.SetVersion(resolveVersion())
 	if err := cmd.Execute(); err != nil {
 		var exitErr cmd.ExitCodeError
 		if errors.As(err, &exitErr) {

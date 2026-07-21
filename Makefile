@@ -31,8 +31,10 @@ help:
 
 all: build
 
+VERSION ?= $(shell git describe --tags --always --dirty 2>/dev/null || echo dev)
+
 build:
-	$(GO) build -o $(BINARY) .
+	$(GO) build -ldflags "-X main.version=$(VERSION)" -o $(BINARY) .
 
 install: build
 	install -d $(DESTDIR)$(BINDIR)
