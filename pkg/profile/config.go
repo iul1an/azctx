@@ -6,12 +6,11 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/ktr0731/go-fuzzyfinder"
 	pkgerrors "github.com/iul1an/azctx/pkg/errors"
-	"github.com/iul1an/azctx/pkg/state"
 	"github.com/iul1an/azctx/pkg/subscription"
 	"github.com/iul1an/azctx/pkg/tenant"
 	"github.com/iul1an/azctx/pkg/types"
+	"github.com/ktr0731/go-fuzzyfinder"
 )
 
 type ConfigurationAdapter struct {
@@ -132,54 +131,6 @@ func (c *ConfigurationAdapter) ClearContext() error {
 
 	c.logger.Success("cleared default subscription")
 	return nil
-}
-
-func (c *ConfigurationAdapter) SetPreviousContext(state state.StateManager) error {
-	if state == nil {
-		c.logger.Error("state manager is nil")
-		return pkgerrors.ErrInvalidContext
-	}
-
-	lastId, lastName := state.GetLastContext()
-	if lastId == "" || lastName == "" {
-		c.logger.Warn("no previous context found")
-		return pkgerrors.ErrNoPreviousContext
-	}
-
-	c.logger.Debug("reading configuration to switch to previous context")
-	config, err := c.storage.ReadConfig()
-	if err != nil {
-		c.logger.Error("failed to read configuration: %v", err)
-		return pkgerrors.WrapError("reading configuration", err)
-	}
-
-	var currentDefault *types.Subscription
-	for _, sub := range config.Subscriptions {
-		if sub.IsDefault {
-			currentDefault = &sub
-			break
-		}
-	}
-
-	if currentDefault == nil {
-		c.logger.Error("no default subscription found in configuration")
-		return pkgerrors.ErrNoDefaultSubscription
-	}
-
-	c.logger.Debug("saving current context: %s", currentDefault.Name)
-	if err := state.SetLastContext(currentDefault.ID.String(), currentDefault.Name); err != nil {
-		c.logger.Error("failed to save current context: %v", err)
-		return pkgerrors.WrapError("saving last context", err)
-	}
-
-	id, err := uuid.Parse(lastId)
-	if err != nil {
-		c.logger.Error("failed to parse previous subscription ID: %v", err)
-		return pkgerrors.WrapError("parsing subscription ID", err)
-	}
-
-	c.logger.Debug("switching to previous context: %s", lastName)
-	return c.SetContext(id)
 }
 
 func (c *ConfigurationAdapter) SaveTenant(id uuid.UUID, name string) error {

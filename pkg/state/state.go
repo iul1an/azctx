@@ -1,28 +1,86 @@
+// Package state persists azctx's context-switch history. It lives in its
+// own file under $XDG_STATE_HOME (not in ~/.azctx.yml) so that recording
+// state never rewrites the user's config — writing through the main viper
+// instance would serialize every bound flag along with it.
 package state
 
-import "github.com/spf13/viper"
+import (
+	"encoding/json"
+	"os"
+	"path/filepath"
+)
 
-// StateManager handles all state operations
+// StateManager handles all state operations.
 type StateManager interface {
+	// GetLastContext returns the previously used subscription (the one
+	// before the most recent pick), or empty strings if there is none.
 	GetLastContext() (id string, name string)
-	SetLastContext(id string, name string) error
+	// RecordSwitch records a successful switch to the given subscription,
+	// rotating the previous current into the last slot (cd - semantics).
+	RecordSwitch(id string, name string) error
 }
 
-type ViperStateManager struct {
-	viper *viper.Viper
+type contextRef struct {
+	ID   string `json:"id"`
+	Name string `json:"name"`
 }
 
-func NewViperStateManager(v *viper.Viper) *ViperStateManager {
-	return &ViperStateManager{viper: v}
+type stateFile struct {
+	Current contextRef `json:"current"`
+	Last    contextRef `json:"last"`
 }
 
-func (v *ViperStateManager) GetLastContext() (string, string) {
-	return v.viper.GetString("lastContextId"),
-		v.viper.GetString("lastContextDisplayName")
+// FileStateManager stores state as JSON under
+// ${XDG_STATE_HOME:-~/.local/state}/azctx/state.json.
+type FileStateManager struct {
+	path string
 }
 
-func (v *ViperStateManager) SetLastContext(id string, name string) error {
-	v.viper.Set("lastContextId", id)
-	v.viper.Set("lastContextDisplayName", name)
-	return v.viper.WriteConfig()
+func NewFileStateManager() *FileStateManager {
+	dir := os.Getenv("XDG_STATE_HOME")
+	if dir == "" {
+		home, err := os.UserHomeDir()
+		if err != nil {
+			home = "."
+		}
+		dir = filepath.Join(home, ".local", "state")
+	}
+	return &FileStateManager{path: filepath.Join(dir, "azctx", "state.json")}
+}
+
+func (f *FileStateManager) read() stateFile {
+	var s stateFile
+	data, err := os.ReadFile(f.path)
+	if err != nil {
+		return s
+	}
+	_ = json.Unmarshal(data, &s)
+	return s
+}
+
+func (f *FileStateManager) GetLastContext() (string, string) {
+	s := f.read()
+	return s.Last.ID, s.Last.Name
+}
+
+func (f *FileStateManager) RecordSwitch(id string, name string) error {
+	s := f.read()
+	if s.Current.ID == id {
+		// Re-picking the current subscription is not a switch; keep the
+		// previous slot intact.
+		return nil
+	}
+	if s.Current.ID != "" {
+		s.Last = s.Current
+	}
+	s.Current = contextRef{ID: id, Name: name}
+
+	if err := os.MkdirAll(filepath.Dir(f.path), 0o700); err != nil {
+		return err
+	}
+	data, err := json.MarshalIndent(s, "", "  ")
+	if err != nil {
+		return err
+	}
+	return os.WriteFile(f.path, data, 0o600)
 }

@@ -26,11 +26,12 @@ package cmd
 
 import (
 	"errors"
+
 	"fmt"
+	"github.com/google/uuid"
 	"os"
 	"strings"
 
-	"github.com/ktr0731/go-fuzzyfinder"
 	pkgerrors "github.com/iul1an/azctx/pkg/errors"
 	"github.com/iul1an/azctx/pkg/isolation"
 	"github.com/iul1an/azctx/pkg/profile"
@@ -39,6 +40,7 @@ import (
 	"github.com/iul1an/azctx/pkg/subscription"
 	"github.com/iul1an/azctx/pkg/tenant"
 	"github.com/iul1an/azctx/pkg/types"
+	"github.com/ktr0731/go-fuzzyfinder"
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
@@ -118,7 +120,7 @@ It provides a fuzzy finder interface to select subscriptions and remembers your 
 // subscription. It returns "" when the user aborted the fuzzy finder without
 // picking anything.
 func pickContext(args []string) (string, error) {
-	stateManager := state.NewViperStateManager(viper.GetViper())
+	stateManager := state.NewFileStateManager()
 	storage := storage.FileAdapter{}
 	if err := storage.FetchDefaultPath("azureProfile.json"); err != nil {
 		return "", pkgerrors.ErrFileOperation("fetching default profile path", err)
@@ -130,6 +132,20 @@ func pickContext(args []string) (string, error) {
 		return "", pkgerrors.ErrReadingConfiguration(err)
 	}
 
+	// setContext switches to the given subscription and records the switch
+	// for `azctx -`. State-write failures are not worth failing the switch
+	// over; they only degrade the previous-context feature.
+	setContext := func(id uuid.UUID, name string) (string, error) {
+		adapter := profile.NewConfigurationAdapter(&storage, logger)
+		if err := adapter.SetContext(id); err != nil {
+			return "", pkgerrors.ErrOperation("setting context", err)
+		}
+		if err := stateManager.RecordSwitch(id.String(), name); err != nil {
+			logger.Warn("failed to record context switch: %v", err)
+		}
+		return name, nil
+	}
+
 	// Non-interactive selection by subscription name or ID
 	if query := viper.GetString("subscription"); query != "" {
 		subManager := subscription.Manager{BaseManager: types.BaseManager{Configuration: cfg}}
@@ -137,20 +153,19 @@ func pickContext(args []string) (string, error) {
 		if err != nil {
 			return "", pkgerrors.ErrOperation(fmt.Sprintf("finding subscription %q", query), err)
 		}
-		adapter := profile.NewConfigurationAdapter(&storage, logger)
-		if err := adapter.SetContext(sub.ID); err != nil {
-			return "", pkgerrors.ErrOperation("setting context", err)
-		}
-		return sub.Name, nil
+		return setContext(sub.ID, sub.Name)
 	}
 
 	if len(args) > 0 && args[0] == "-" {
-		_, lastName := stateManager.GetLastContext()
-		adapter := profile.NewConfigurationAdapter(&storage, logger)
-		if err := adapter.SetPreviousContext(stateManager); err != nil {
-			return "", pkgerrors.ErrSettingPreviousContext(err)
+		lastID, lastName := stateManager.GetLastContext()
+		if lastID == "" {
+			return "", pkgerrors.ErrSettingPreviousContext(pkgerrors.ErrNoPreviousContext)
 		}
-		return lastName, nil
+		id, err := uuid.Parse(lastID)
+		if err != nil {
+			return "", pkgerrors.WrapError("parsing previous subscription ID", err)
+		}
+		return setContext(id, lastName)
 	}
 
 	// Check if tenant selection is requested
@@ -173,11 +188,7 @@ func pickContext(args []string) (string, error) {
 			return "", pkgerrors.ErrSelectingSubscription(err)
 		}
 
-		adapter := profile.NewConfigurationAdapter(&storage, logger)
-		if err := adapter.SetContext(sub.ID); err != nil {
-			return "", pkgerrors.ErrOperation("setting context", err)
-		}
-		return sub.Name, nil
+		return setContext(sub.ID, sub.Name)
 	}
 
 	// Default subscription selection
@@ -190,11 +201,7 @@ func pickContext(args []string) (string, error) {
 		return "", pkgerrors.ErrSelectingSubscription(err)
 	}
 
-	if err := adapter.SetContext(sub.ID); err != nil {
-		return "", pkgerrors.ErrOperation("setting context", err)
-	}
-
-	return sub.Name, nil
+	return setContext(sub.ID, sub.Name)
 }
 
 // Execute adds all child commands to the root command and sets flags appropriately.
@@ -269,15 +276,11 @@ func initConfig() {
 	viper.SetEnvKeyReplacer(strings.NewReplacer("-", "_"))
 	viper.AutomaticEnv()
 
-	// Create config if it doesn't exist
+	// The config file is optional; only a malformed one is an error.
+	// (Auto-creating it here would snapshot whatever flags were passed on
+	// the first-ever run into permanent config — e.g. `--fresh` forever.)
 	if err := viper.ReadInConfig(); err != nil {
-		if _, ok := err.(viper.ConfigFileNotFoundError); ok {
-			if err := viper.SafeWriteConfigAs(home + "/.azctx.yml"); err != nil {
-				logger := profile.NewLogger("error")
-				logger.Error("Failed to write config: %v", err)
-				os.Exit(1)
-			}
-		} else {
+		if _, ok := err.(viper.ConfigFileNotFoundError); !ok {
 			logger := profile.NewLogger("error")
 			logger.Error("Failed to read config: %v", err)
 			os.Exit(1)

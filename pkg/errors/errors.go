@@ -32,7 +32,7 @@ var (
 	// Context related errors
 
 	// ErrNoPreviousContext is returned when attempting to switch to a previous context that doesn't exist
-	ErrNoPreviousContext = errors.New("no previous context, check ~/.azctx.yml is present and has content")
+	ErrNoPreviousContext = errors.New("no previous context recorded yet; it is remembered once you have switched subscriptions twice")
 
 	// Subscription related errors
 
