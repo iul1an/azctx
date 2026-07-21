@@ -23,36 +23,6 @@ func TestErrorWrapping(t *testing.T) {
 			wantMsg: "error reading configuration: base error",
 		},
 		{
-			name:    "wrap configuration write error",
-			err:     baseErr,
-			wrapper: ErrWritingConfiguration,
-			wantMsg: "error writing configuration: base error",
-		},
-		{
-			name:    "wrap JSON marshalling error",
-			err:     baseErr,
-			wrapper: ErrMarshallingJSON,
-			wantMsg: "error marshalling JSON: base error",
-		},
-		{
-			name:    "wrap JSON unmarshalling error",
-			err:     baseErr,
-			wrapper: ErrUnmarshallingJSON,
-			wantMsg: "error unmarshalling JSON: base error",
-		},
-		{
-			name:    "wrap file read error",
-			err:     baseErr,
-			wrapper: ErrReadingFile,
-			wantMsg: "error reading file: base error",
-		},
-		{
-			name:    "wrap file write error",
-			err:     baseErr,
-			wrapper: ErrWritingFile,
-			wantMsg: "error writing file: base error",
-		},
-		{
 			name:    "wrap subscription selection error",
 			err:     baseErr,
 			wrapper: ErrSelectingSubscription,

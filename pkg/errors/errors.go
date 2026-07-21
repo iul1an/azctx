@@ -24,10 +24,6 @@ var (
 	ErrReadingConfiguration = func(err error) error {
 		return fmt.Errorf("error reading configuration: %w", err)
 	}
-	// ErrWritingConfiguration wraps errors that occur while writing configuration files
-	ErrWritingConfiguration = func(err error) error {
-		return fmt.Errorf("error writing configuration: %w", err)
-	}
 
 	// Context related errors
 
@@ -53,26 +49,6 @@ var (
 		return fmt.Errorf("error during %s: %w", op, err)
 	}
 
-	// ErrMarshallingJSON wraps errors that occur during JSON marshalling
-	ErrMarshallingJSON = func(err error) error {
-		return fmt.Errorf("error marshalling JSON: %w", err)
-	}
-
-	// ErrUnmarshallingJSON wraps errors that occur during JSON unmarshalling
-	ErrUnmarshallingJSON = func(err error) error {
-		return fmt.Errorf("error unmarshalling JSON: %w", err)
-	}
-
-	// ErrReadingFile wraps errors that occur while reading files
-	ErrReadingFile = func(err error) error {
-		return fmt.Errorf("error reading file: %w", err)
-	}
-
-	// ErrWritingFile wraps errors that occur while writing files
-	ErrWritingFile = func(err error) error {
-		return fmt.Errorf("error writing file: %w", err)
-	}
-
 	// ErrSelectingSubscription wraps errors that occur during subscription selection
 	ErrSelectingSubscription = func(err error) error {
 		return fmt.Errorf("error selecting subscription: %w", err)
@@ -85,15 +61,8 @@ var (
 
 	// Context validation errors
 
-	// ErrInvalidContext is returned when a context is missing required fields
-	ErrInvalidContext = errors.New("invalid context: missing required fields")
 	// ErrInvalidSubscriptionID is returned when a subscription ID has an invalid format
 	ErrInvalidSubscriptionID = errors.New("invalid subscription ID format")
-
-	// State related errors
-
-	// ErrNoDefaultSubscription is returned when no default subscription is configured
-	ErrNoDefaultSubscription = errors.New("no default subscription found in configuration")
 
 	// Validation errors
 

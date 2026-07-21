@@ -3,7 +3,6 @@
 package profile
 
 import (
-	"github.com/google/uuid"
 	"github.com/iul1an/azctx/pkg/types"
 )
 
@@ -17,31 +16,6 @@ type StorageAdapter interface {
 	// WriteConfig persists the provided Azure configuration.
 	// Returns an error if the write operation fails.
 	WriteConfig(*types.Configuration) error
-}
-
-// TenantService defines the interface for tenant-related operations.
-// It provides functionality for managing Azure tenant information.
-type TenantService interface {
-	// GetTenants retrieves all available Azure tenants.
-	// Returns a slice of Tenant objects and any error encountered.
-	GetTenants() ([]types.Tenant, error)
-
-	// SaveTenantName updates the display name for a tenant identified by its UUID.
-	// Returns an error if the save operation fails.
-	SaveTenantName(uuid.UUID, string) error
-}
-
-// LastContextAdapter defines the interface for managing the most recently used context.
-// It provides functionality to persist and retrieve the last used Azure context.
-type LastContextAdapter interface {
-	// ReadLastContextId retrieves the ID of the last used context.
-	ReadLastContextId() string
-
-	// ReadLastContextDisplayName retrieves the display name of the last used context.
-	ReadLastContextDisplayName() string
-
-	// WriteLastContext persists both the ID and display name of the current context.
-	WriteLastContext(string, string)
 }
 
 // Logger defines the interface for logging operations.

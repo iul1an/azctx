@@ -1,15 +1,12 @@
 package profile
 
 import (
-	"context"
 	"errors"
-	"time"
 
 	"github.com/google/uuid"
 	pkgerrors "github.com/iul1an/azctx/pkg/errors"
 	"github.com/iul1an/azctx/pkg/finder"
 	"github.com/iul1an/azctx/pkg/subscription"
-	"github.com/iul1an/azctx/pkg/tenant"
 	"github.com/iul1an/azctx/pkg/types"
 )
 
@@ -130,94 +127,5 @@ func (c *ConfigurationAdapter) ClearContext() error {
 	}
 
 	c.logger.Success("cleared default subscription")
-	return nil
-}
-
-func (c *ConfigurationAdapter) SaveTenant(id uuid.UUID, name string) error {
-	if id == uuid.Nil {
-		return pkgerrors.ErrInvalidTenantID
-	}
-
-	if name == "" {
-		return pkgerrors.ErrEmptyTenantName
-	}
-
-	config, err := c.storage.ReadConfig()
-	if err != nil {
-		return pkgerrors.WrapError("reading configuration", err)
-	}
-
-	tenantManager := tenant.Manager{BaseManager: types.BaseManager{Configuration: config}}
-	if err := tenantManager.SaveTenantName(id, name); err != nil {
-		return pkgerrors.WrapError("saving tenant name", err)
-	}
-
-	if err := c.storage.WriteConfig(config); err != nil {
-		return pkgerrors.WrapError("writing configuration", err)
-	}
-
-	return nil
-}
-
-// Add context to key operations
-func (c *ConfigurationAdapter) SelectWithFinderContext(ctx context.Context) (*types.Subscription, error) {
-	select {
-	case <-ctx.Done():
-		return nil, ctx.Err()
-	default:
-		return c.SelectWithFinder()
-	}
-}
-
-func (c *ConfigurationAdapter) SetContextWithTimeout(subscriptionID uuid.UUID, timeout time.Duration) error {
-	ctx, cancel := context.WithTimeout(context.Background(), timeout)
-	defer cancel()
-
-	done := make(chan error, 1)
-	go func() {
-		done <- c.SetContext(subscriptionID)
-	}()
-
-	select {
-	case err := <-done:
-		return err
-	case <-ctx.Done():
-		return ctx.Err()
-	}
-}
-
-// GetTenantManager returns a tenant manager instance
-func (c *ConfigurationAdapter) GetTenantManager() (*tenant.Manager, error) {
-	config, err := c.storage.ReadConfig()
-	if err != nil {
-		c.logger.Error("failed to read configuration: %v", err)
-		return nil, pkgerrors.WrapError("reading configuration", err)
-	}
-	return &tenant.Manager{BaseManager: types.BaseManager{Configuration: config}}, nil
-}
-
-// SaveTenantName saves a custom name for a tenant
-func (c *ConfigurationAdapter) SaveTenantName(id uuid.UUID, name string) error {
-	// Read the latest configuration
-	config, err := c.storage.ReadConfig()
-	if err != nil {
-		c.logger.Error("failed to read configuration: %v", err)
-		return pkgerrors.WrapError("reading configuration", err)
-	}
-
-	// Create tenant manager with the latest configuration
-	tm := tenant.Manager{BaseManager: types.BaseManager{Configuration: config}}
-	if err := tm.SaveTenantName(id, name); err != nil {
-		c.logger.Error("failed to save tenant name: %v", err)
-		return pkgerrors.WrapError("saving tenant name", err)
-	}
-
-	// Write the updated configuration back
-	if err := c.storage.WriteConfig(config); err != nil {
-		c.logger.Error("failed to write configuration: %v", err)
-		return pkgerrors.WrapError("writing configuration", err)
-	}
-
-	c.logger.Success("saved custom name '%s' for tenant %s", name, id)
 	return nil
 }

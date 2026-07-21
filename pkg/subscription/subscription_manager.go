@@ -14,28 +14,6 @@ type Manager struct {
 	types.BaseManager
 }
 
-// SetDefaultSubscription marks a subscription as default by its UUID.
-func (sm *Manager) SetDefaultSubscription(subscriptionID uuid.UUID) error {
-	for i, sub := range sm.Configuration.Subscriptions {
-		if sub.ID == subscriptionID {
-			sm.Configuration.Subscriptions[i].IsDefault = true
-		} else {
-			sm.Configuration.Subscriptions[i].IsDefault = false
-		}
-	}
-	return nil
-}
-
-// FindSubscription searches for a subscription by name and returns it.
-func (sm *Manager) FindSubscription(name string) (*types.Subscription, error) {
-	for _, sub := range sm.Configuration.Subscriptions {
-		if sub.Name == name {
-			return &sub, nil
-		}
-	}
-	return nil, pkgerrors.ErrSubscriptionNotFound
-}
-
 // FindSubscriptionIndex uses fuzzy finding to let user select a subscription
 func (sm *Manager) FindSubscriptionIndex() (int, error) {
 	if len(sm.Configuration.Subscriptions) == 0 {
