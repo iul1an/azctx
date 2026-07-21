@@ -7,7 +7,7 @@ GO     ?= go
 
 MAKEPKG_TMP := $(or $(TMPDIR),/tmp)/azctx-makepkg
 
-.PHONY: help all build install uninstall test lint clean arch-build arch-install updatesums clean-arch
+.PHONY: help all build install uninstall test lint clean arch-build arch-install arch-bump updatesums clean-arch
 
 help:
 	@echo "azctx — Azure-CLI context switcher"
@@ -21,6 +21,7 @@ help:
 	@echo "  clean       Remove build artifacts"
 	@echo "  arch-build     Build an Arch Linux package (.pkg.tar.zst)"
 	@echo "  arch-install   Build and install the Arch package with pacman"
+	@echo "  arch-bump      Point PKGBUILD at the latest release tag and refresh checksums"
 	@echo "  updatesums     Refresh sha256sums in PKGBUILD (needs pacman-contrib)"
 	@echo ""
 	@echo "Examples:"
@@ -51,6 +52,12 @@ arch-build:
 
 arch-install:
 	BUILDDIR=$(MAKEPKG_TMP) SRCDEST=$(MAKEPKG_TMP) PKGDEST=$(CURDIR) makepkg -sif
+
+arch-bump:
+	@ver=$$(git describe --tags --abbrev=0 | sed 's/^v//'); \
+	sed -i "s/^pkgver=.*/pkgver=$$ver/; s/^pkgrel=.*/pkgrel=1/" PKGBUILD; \
+	updpkgsums; \
+	echo "PKGBUILD now at $$ver"
 
 updatesums:
 	updpkgsums
