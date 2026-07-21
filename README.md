@@ -157,7 +157,10 @@ by Richard Weston (MIT) and retains its full git history. The fuzzy-finder
 picker and the `azureProfile.json` handling descend from that project; the
 per-shell isolation model, `exec`/`list`/`status`, `--fresh`, the
 subscription-binding semantics, and orphaned-context GC are original to
-azctx. azctx is not affiliated with or endorsed by the original author.
+azctx. Unlike the original project, azctx does not support Windows: the
+isolation model is built on Unix process semantics (`$SHELL`, signals),
+so only Linux and macOS binaries are published. azctx is not affiliated
+with or endorsed by the original author.
 
 ## Contributing
 
