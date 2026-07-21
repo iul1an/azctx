@@ -63,7 +63,7 @@ var statusCmd = &cobra.Command{
 			for _, c := range mustListContexts() {
 				if c.Active {
 					out.PID = c.PID
-					started := c.Started
+					started := c.Started.Truncate(time.Second)
 					out.Started = &started
 					break
 				}

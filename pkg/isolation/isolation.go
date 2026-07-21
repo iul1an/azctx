@@ -49,7 +49,7 @@ func Setup() (string, error) {
 
 	// Mark the dir as aztx-owned before anything else, so Sweep/ListContexts
 	// never see an unmarked half-built dir of ours.
-	metaData, err := json.Marshal(meta{PID: os.Getpid(), Started: time.Now()})
+	metaData, err := json.Marshal(meta{PID: os.Getpid(), Started: time.Now().Truncate(time.Second)})
 	if err == nil {
 		err = os.WriteFile(filepath.Join(tmpDir, metaFileName), metaData, 0o600)
 	}
