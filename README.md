@@ -22,8 +22,7 @@
 ## Installation
 
 Linux and macOS only — the per-shell isolation relies on Unix process
-semantics ($SHELL, signals), so unlike upstream there are no Windows
-builds.
+semantics (`$SHELL`, signals), so there are no Windows builds.
 
 ### Download Prebuilt Binary
 
@@ -130,7 +129,7 @@ the picker — the command still runs in its own fresh context.
 ### In-Place Mode
 
 ```sh
-# Mutate the master ~/.azure directly (upstream behavior): no tempdir
+# Mutate the master ~/.azure directly: no tempdir
 # copy, no subshell. Refused inside an isolated shell like bare azctx.
 azctx --in-place
 ```
@@ -167,7 +166,7 @@ by-tenant: false
 #fresh: false
 
 # Careful with these two as persistent settings:
-# in-place: true reverts to upstream's mutate-~/.azure behavior;
+# in-place: true makes bare azctx mutate ~/.azure directly;
 # unset: true makes every bare azctx run clear the default and exit.
 #in-place: false
 #unset: false
