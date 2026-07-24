@@ -32,7 +32,7 @@ type statusOutput struct {
 var statusCmd = &cobra.Command{
 	Use:           "status",
 	Short:         "Show the current shell's Azure context as JSON",
-	Long:          "Prints the active context as indented JSON. Exits 1 when not inside an azctx isolated shell.",
+	Long:          "Prints the active context as indented JSON. The `isolated` field reports whether you are inside an azctx isolated shell.",
 	Args:          cobra.NoArgs,
 	SilenceUsage:  true,
 	SilenceErrors: true,
@@ -77,10 +77,6 @@ var statusCmd = &cobra.Command{
 			return err
 		}
 		fmt.Println(string(data))
-
-		if !out.Isolated {
-			return ExitCodeError{Code: 1}
-		}
 		return nil
 	},
 }

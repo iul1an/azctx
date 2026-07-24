@@ -106,8 +106,9 @@ azctx exec --fresh -- az login --use-device-code
 # --json emits both as indented JSON.
 azctx list
 
-# Show the current shell's context as indented JSON (exit 1 outside
-# an isolated shell) — subscription, tenant, PID, env consistency.
+# Show the current context as indented JSON — subscription, tenant,
+# PID, env consistency. The `isolated` field tells you whether you are
+# inside an isolated shell.
 azctx status
 ```
 
