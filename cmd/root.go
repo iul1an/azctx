@@ -67,11 +67,14 @@ It provides a fuzzy finder interface to select subscriptions and remembers your 
 	RunE: func(cmd *cobra.Command, args []string) error {
 		sweepOrphans()
 
-		// An isolated shell is bound to the subscription it was started
-		// with: a re-pick inside it could not update the shell's exported
-		// AZCTX_SUBSCRIPTION, so tools reading it would be lied to. There is
-		// deliberately no override.
+		// Refused inside an isolated shell, with a message per mode.
 		if isolation.IsActive() {
+			// --unset/--in-place would hit the temp copy, not master ~/.azure.
+			if viper.GetBool("unset") || viper.GetBool("in-place") {
+				return fmt.Errorf(
+					"cannot modify the master ~/.azure from inside an azctx isolated shell: this shell is scoped to a temporary copy; exit it first")
+			}
+			// A re-pick can't update the exported AZCTX_SUBSCRIPTION.
 			return fmt.Errorf(
 				"already inside an azctx isolated shell (AZCTX_SUBSCRIPTION=%q); exit it and re-run azctx, or use azctx exec for a one-off command in another context",
 				os.Getenv("AZCTX_SUBSCRIPTION"))
