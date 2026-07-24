@@ -13,6 +13,7 @@ import (
 type ConfigurationAdapter struct {
 	storage StorageAdapter
 	logger  Logger
+	aliases subscription.Aliases
 }
 
 func NewConfigurationAdapter(storage StorageAdapter, logger Logger) *ConfigurationAdapter {
@@ -20,6 +21,13 @@ func NewConfigurationAdapter(storage StorageAdapter, logger Logger) *Configurati
 		storage: storage,
 		logger:  logger,
 	}
+}
+
+// WithAliases attaches the user's configured subscription aliases, so the
+// picker can show them.
+func (c *ConfigurationAdapter) WithAliases(aliases subscription.Aliases) *ConfigurationAdapter {
+	c.aliases = aliases
+	return c
 }
 
 func (c *ConfigurationAdapter) SelectWithFinder() (*types.Subscription, error) {
@@ -41,7 +49,7 @@ func (c *ConfigurationAdapter) SelectWithFinder() (*types.Subscription, error) {
 	}
 
 	c.logger.Debug("initiating subscription selection with fuzzy finder")
-	subManager := subscription.Manager{BaseManager: types.BaseManager{Configuration: config}}
+	subManager := subscription.Manager{BaseManager: types.BaseManager{Configuration: config}, Aliases: c.aliases}
 	idx, err := subManager.FindSubscriptionIndex()
 	if err != nil {
 		if errors.Is(err, finder.ErrAbort) {

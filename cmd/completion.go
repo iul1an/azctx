@@ -22,6 +22,13 @@ func completeSubscriptions(cmd *cobra.Command, args []string, toComplete string)
 	// continuing a partially completed word (Tab goes dead after the
 	// escaped space); IDs are space-free and --subscription accepts them.
 	entries := make([]string, 0, len(cfg.Subscriptions))
+	// Aliases come first: short, and space-free like the IDs below.
+	aliases := aliasIndex(cfg)
+	for _, s := range cfg.Subscriptions {
+		for _, a := range aliases[s.ID] {
+			entries = append(entries, fmt.Sprintf("%s\t%s", a, s.Name))
+		}
+	}
 	for _, s := range cfg.Subscriptions {
 		entries = append(entries, fmt.Sprintf("%s\t%s", s.ID, s.Name))
 	}

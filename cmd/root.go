@@ -141,6 +141,7 @@ func pickContext(args []string) (string, error) {
 	}
 
 	logger := profile.NewLogger(viper.GetString("log-level")).SetQuiet(viper.GetBool("quiet"))
+	aliases := configuredAliases()
 	cfg, err := storage.ReadConfig()
 	if err != nil {
 		return "", pkgerrors.ErrReadingConfiguration(err)
@@ -162,7 +163,7 @@ func pickContext(args []string) (string, error) {
 
 	// Non-interactive selection by subscription name or ID
 	if query := viper.GetString("subscription"); query != "" {
-		subManager := subscription.Manager{BaseManager: types.BaseManager{Configuration: cfg}}
+		subManager := subscription.Manager{BaseManager: types.BaseManager{Configuration: cfg}, Aliases: aliases}
 		sub, err := subManager.FindSubscriptionByNameOrID(query)
 		if err != nil {
 			return "", pkgerrors.ErrOperation(fmt.Sprintf("finding subscription %q", query), err)
@@ -206,7 +207,7 @@ func pickContext(args []string) (string, error) {
 			return "", pkgerrors.ErrTenantOperation("selecting tenant", err)
 		}
 
-		subManager := subscription.Manager{BaseManager: types.BaseManager{Configuration: cfg}}
+		subManager := subscription.Manager{BaseManager: types.BaseManager{Configuration: cfg}, Aliases: aliases}
 		sub, err := subManager.FindSubscriptionIndexByTenant(selectedTenant.ID)
 		if err != nil {
 			if errors.Is(err, finder.ErrAbort) {
@@ -219,7 +220,7 @@ func pickContext(args []string) (string, error) {
 	}
 
 	// Default subscription selection
-	adapter := profile.NewConfigurationAdapter(&storage, logger)
+	adapter := profile.NewConfigurationAdapter(&storage, logger).WithAliases(aliases)
 	sub, err := adapter.SelectWithFinder()
 	if err != nil {
 		if errors.Is(err, finder.ErrAbort) {
@@ -249,7 +250,7 @@ func init() {
 	cobra.OnInitialize(initConfig)
 	rootCmd.PersistentFlags().String("log-level", "info", "Set log level (debug, info, warn, error)")
 	rootCmd.PersistentFlags().Bool("by-tenant", false, "Select tenant before choosing subscription")
-	rootCmd.PersistentFlags().String("subscription", "", "Select subscription by name or ID without the interactive picker")
+	rootCmd.PersistentFlags().String("subscription", "", "Select subscription by configured alias, name, or ID without the interactive picker")
 	rootCmd.Flags().Bool("in-place", false, "Mutate the master ~/.azure directly instead of spawning an isolated subshell")
 	rootCmd.Flags().Bool("unset", false, "Clear the default subscription in the master ~/.azure and exit")
 	rootCmd.PersistentFlags().Bool("fresh", false, "Start from an empty Azure config (skip copying ~/.azure, no picker) for ephemeral workflows")
@@ -323,5 +324,11 @@ func initConfig() {
 			logger.Error("Failed to read config: %v", err)
 			os.Exit(1)
 		}
+	}
+
+	if err := validateAliasKeys(viper.ConfigFileUsed()); err != nil {
+		logger := profile.NewLogger("error")
+		logger.Error("Invalid config: %v", err)
+		os.Exit(1)
 	}
 }

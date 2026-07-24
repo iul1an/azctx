@@ -10,6 +10,7 @@
 - 🐚 **Per-shell isolated contexts** — each `azctx` invocation copies `~/.azure` to a private tempdir, sets `AZURE_CONFIG_DIR`, and drops you into a subshell; the master `~/.azure` is never touched
 - 🔍 Real fzf picker, embedded — inline (no full-screen takeover), themed by your FZF_DEFAULT_OPTS and any fzf options via config
 - ⚡ Quick context switching between subscriptions
+- 🏷️  Short aliases for subscriptions, in the picker and `--subscription`
 - 🔄 Easy switching to previous context (similar to `cd -`)
 - 🎯 Tenant-first selection mode
 - 🔧 Configurable logging levels
@@ -132,9 +133,11 @@ azctx --by-tenant
 azctx exec -- kubectl get pods
 azctx exec --by-tenant -- kubie ctx my-aks-cluster
 
-# Skip the picker entirely with --subscription (name or ID, name is
-# case-insensitive). Also works on bare azctx.
+# Skip the picker entirely with --subscription (alias, name, or ID;
+# names and aliases are case-insensitive). Also works on bare azctx.
 azctx exec --subscription "My Subscription" -- kubectl get pods
+# 'prod' below is an alias, see Subscription Aliases
+azctx exec --subscription prod -- az aks list --query '[].name' -o tsv
 
 # With no command, exec drops into an isolated subshell instead of
 # running something and exiting — so `exec --subscription` is a
@@ -144,6 +147,29 @@ azctx exec --subscription "My Subscription"
 
 Like bare `azctx`, `exec` is refused inside an isolated shell: exit it
 first and re-run. Nesting contexts is confusing and buys nothing.
+
+### Subscription Aliases
+
+Optional short names for subscriptions, defined in the config file as an
+alias to a subscription ID or name:
+
+```yaml
+aliases:
+  prod: 11111111-2222-3333-4444-555555555555
+  dev: "My Dev Subscription"
+```
+
+Use them anywhere `--subscription` is accepted; `<Tab>` completes them.
+
+```sh
+azctx --subscription prod
+azctx exec --subscription dev -- az aks list --query '[].name' -o tsv
+```
+
+Aliases are case-insensitive, appear in the picker as `My Prod
+Subscription [prod] (1111-…)`, and show up in `azctx list` and `azctx
+status`. An alias takes precedence over a subscription of the same name,
+and one pointing at nothing is an error rather than a fallback.
 
 ### In-Place Mode
 
@@ -178,8 +204,13 @@ log-level: info
 # Always pick the tenant before the subscription
 by-tenant: false
 
-# Always select this subscription (name or ID) — disables the picker
+# Always select this subscription (alias, name, or ID) — disables the picker
 #subscription: "My Subscription"
+
+# Short aliases for subscriptions (value is a subscription ID or name)
+#aliases:
+#  prod: 11111111-2222-3333-4444-555555555555
+#  dev: "My Dev Subscription"
 
 # Always start from an empty config (ephemeral-by-default workflow)
 #fresh: false
@@ -204,7 +235,8 @@ by-tenant: false
 You can also set configuration via environment variables:
 - `AZCTX_LOG_LEVEL`: Set logging level
 - `AZCTX_BY_TENANT`: Enable tenant-first selection mode
-- `AZCTX_SUBSCRIPTION`: Same as `--subscription`. Note the dual role:
+- `AZCTX_SUBSCRIPTION`: Same as `--subscription`, aliases included. Note
+  the dual role:
   azctx also *exports* this into isolated shells, which is what makes
   nested `azctx exec` inherit the shell's subscription.
 

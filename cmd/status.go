@@ -14,9 +14,10 @@ import (
 )
 
 type statusSubscription struct {
-	Name     string `json:"name"`
-	ID       string `json:"id"`
-	TenantID string `json:"tenantId"`
+	Name     string   `json:"name"`
+	ID       string   `json:"id"`
+	TenantID string   `json:"tenantId"`
+	Aliases  []string `json:"aliases,omitempty"`
 }
 
 type statusOutput struct {
@@ -49,9 +50,12 @@ var statusCmd = &cobra.Command{
 		if err != nil {
 			return err
 		}
+		aliases := aliasIndex(cfg)
 		for _, s := range cfg.Subscriptions {
 			if s.IsDefault {
-				out.Subscription = &statusSubscription{Name: s.Name, ID: s.ID.String(), TenantID: s.TenantID.String()}
+				out.Subscription = &statusSubscription{
+					Name: s.Name, ID: s.ID.String(), TenantID: s.TenantID.String(), Aliases: aliases[s.ID],
+				}
 				break
 			}
 		}
