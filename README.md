@@ -197,8 +197,10 @@ Notes on isolation:
 
 ## Configuration
 
-Configuration is stored in `~/.azctx.yml`. Every flag can be set there
-(precedence: flag > `AZCTX_*` environment variable > config file):
+Configuration is stored in `~/.azctx.yml`, or wherever `AZCTX_CONFIG_FILE`
+points (any extension, parsed as YAML; naming a file that does not exist is
+an error). Every flag can be set there (precedence: flag > `AZCTX_*`
+environment variable > config file):
 
 ```yaml
 # Log level: debug, info, warn, error
@@ -238,6 +240,7 @@ by-tenant: false
 You can also set configuration via environment variables:
 - `AZCTX_LOG_LEVEL`: Set logging level
 - `AZCTX_BY_TENANT`: Enable tenant-first selection mode
+- `AZCTX_CONFIG_FILE`: Use this config file instead of `~/.azctx.yml`
 - `AZCTX_SUBSCRIPTION`: Same as `--subscription`, aliases included. Note
   the dual role:
   azctx also *exports* this into isolated shells, which is what makes

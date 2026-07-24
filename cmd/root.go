@@ -25,11 +25,13 @@ THE SOFTWARE.
 package cmd
 
 import (
+	"bytes"
 	"errors"
 
 	"fmt"
 	"github.com/google/uuid"
 	"os"
+	"path/filepath"
 	"strings"
 
 	pkgerrors "github.com/iul1an/azctx/pkg/errors"
@@ -296,39 +298,52 @@ func init() {
 	registerCompletions()
 }
 
-// initConfig reads in config file and ENV variables if set.
-// It looks for a .azctx.yml file in the user's home directory and creates one if it doesn't exist.
-// The function will exit with status code 1 if there are any errors accessing the home directory
-// or handling the configuration file.
+// initConfig loads the config, exiting 1 on any problem with it.
 func initConfig() {
-	home, err := os.UserHomeDir()
-	if err != nil {
-		logger := profile.NewLogger("error")
-		logger.Error("Failed to get home directory: %v", err)
+	if err := loadConfig(); err != nil {
+		profile.NewLogger("error").Error("%v", err)
 		os.Exit(1)
 	}
+}
 
-	viper.AddConfigPath(home)
+// loadConfig reads ~/.azctx.yml (or AZCTX_CONFIG_FILE) and sets up the
+// AZCTX_* environment. The file is read once here and handed to viper, so
+// validation and viper see the same bytes. It is optional and never created.
+func loadConfig() error {
 	viper.SetConfigType("yml")
-	viper.SetConfigName(".azctx")
 	viper.SetEnvPrefix("AZCTX")
 	viper.SetEnvKeyReplacer(strings.NewReplacer("-", "_", ".", "_"))
 	viper.AutomaticEnv()
 
-	// The config file is optional; only a malformed one is an error.
-	// (Auto-creating it here would snapshot whatever flags were passed on
-	// the first-ever run into permanent config — e.g. `--fresh` forever.)
-	if err := viper.ReadInConfig(); err != nil {
-		if _, ok := err.(viper.ConfigFileNotFoundError); !ok {
-			logger := profile.NewLogger("error")
-			logger.Error("Failed to read config: %v", err)
-			os.Exit(1)
+	path, err := resolveConfigFile()
+	if err != nil {
+		return err
+	}
+	explicit := path != ""
+	if !explicit {
+		home, err := os.UserHomeDir()
+		if err != nil {
+			return fmt.Errorf("resolving home directory: %w", err)
 		}
+		path = filepath.Join(home, ".azctx.yml")
 	}
 
-	if err := validateAliasKeys(viper.ConfigFileUsed()); err != nil {
-		logger := profile.NewLogger("error")
-		logger.Error("Invalid config: %v", err)
-		os.Exit(1)
+	data, err := os.ReadFile(path)
+	if err != nil {
+		// A missing default config is the normal case. Auto-creating it
+		// would snapshot whatever flags the first run passed, e.g.
+		// `--fresh` forever.
+		if os.IsNotExist(err) && !explicit {
+			return nil
+		}
+		return fmt.Errorf("reading config: %w", err)
 	}
+
+	if err := validateAliasKeys(data, path); err != nil {
+		return fmt.Errorf("invalid config: %w", err)
+	}
+	if err := viper.ReadConfig(bytes.NewReader(data)); err != nil {
+		return fmt.Errorf("reading config %s: %w", path, err)
+	}
+	return nil
 }

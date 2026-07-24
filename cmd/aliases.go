@@ -2,7 +2,6 @@ package cmd
 
 import (
 	"fmt"
-	"os"
 	"sort"
 	"strings"
 
@@ -31,21 +30,13 @@ func aliasIndex(cfg *types.Configuration) map[uuid.UUID][]string {
 }
 
 // validateAliasKeys rejects alias keys that differ only in case: viper
-// lowercases them into one, with an arbitrary winner. Re-reads the file
-// because viper has already collapsed them by the time we can ask.
-func validateAliasKeys(path string) error {
-	if path == "" {
-		return nil
-	}
-	data, err := os.ReadFile(path)
-	if err != nil {
-		return nil // viper reports an unreadable config first
-	}
+// lowercases them into one, with an arbitrary winner.
+func validateAliasKeys(data []byte, path string) error {
 	var doc struct {
 		Aliases map[string]any `yaml:"aliases"`
 	}
 	if err := yaml.Unmarshal(data, &doc); err != nil {
-		return nil // likewise for a malformed one
+		return fmt.Errorf("%s: %w", path, err)
 	}
 
 	byLower := make(map[string][]string, len(doc.Aliases))

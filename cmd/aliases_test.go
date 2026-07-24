@@ -16,21 +16,23 @@ func writeConfig(t *testing.T, body string) string {
 	return path
 }
 
+func check(body string) error { return validateAliasKeys([]byte(body), "config.yml") }
+
 func TestValidateAliasKeys(t *testing.T) {
 	t.Run("accepts distinct aliases", func(t *testing.T) {
-		assert.NoError(t, validateAliasKeys(writeConfig(t, "aliases:\n  prod: a\n  dev: b\n")))
+		assert.NoError(t, check("aliases:\n  prod: a\n  dev: b\n"))
 	})
 
 	t.Run("accepts a config without aliases", func(t *testing.T) {
-		assert.NoError(t, validateAliasKeys(writeConfig(t, "by-tenant: true\n")))
+		assert.NoError(t, check("by-tenant: true\n"))
 	})
 
-	t.Run("accepts no config file", func(t *testing.T) {
-		assert.NoError(t, validateAliasKeys(""))
+	t.Run("accepts an empty config", func(t *testing.T) {
+		assert.NoError(t, check(""))
 	})
 
 	t.Run("rejects keys differing only in case", func(t *testing.T) {
-		err := validateAliasKeys(writeConfig(t, "aliases:\n  PROD: a\n  Prod: b\n"))
+		err := check("aliases:\n  PROD: a\n  Prod: b\n")
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), `"PROD"`)
 		assert.Contains(t, err.Error(), `"Prod"`)
@@ -38,14 +40,14 @@ func TestValidateAliasKeys(t *testing.T) {
 	})
 
 	t.Run("reports every collision, sorted", func(t *testing.T) {
-		err := validateAliasKeys(writeConfig(t,
-			"aliases:\n  DEV: a\n  dev: b\n  PROD: c\n  prod: d\n"))
+		err := check("aliases:\n  DEV: a\n  dev: b\n  PROD: c\n  prod: d\n")
 		require.Error(t, err)
 		assert.Regexp(t, `"dev".*"prod"`, err.Error())
 	})
 
-	t.Run("ignores a file it cannot parse", func(t *testing.T) {
-		// viper reports malformed config first; do not double-report here.
-		assert.NoError(t, validateAliasKeys(writeConfig(t, "aliases: [not, a, map]\n")))
+	t.Run("reports a malformed file instead of deferring to viper", func(t *testing.T) {
+		err := check("aliases: [not, a, map]\n")
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "config.yml")
 	})
 }
