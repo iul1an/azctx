@@ -62,6 +62,116 @@ func TestSetup(t *testing.T) {
 	assert.Equal(t, os.FileMode(0o700), info.Mode().Perm())
 }
 
+func TestSetupPreservesFileModes(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	azureDir := filepath.Join(home, ".azure")
+	sub := filepath.Join(azureDir, "msal_token_cache")
+	require.NoError(t, os.MkdirAll(sub, 0o700))
+	require.NoError(t, os.WriteFile(filepath.Join(azureDir, "service_principal_entries.json"), []byte(`[]`), 0o600))
+	require.NoError(t, os.WriteFile(filepath.Join(azureDir, "config"), []byte("[core]\n"), 0o644))
+	require.NoError(t, os.WriteFile(filepath.Join(sub, "cache.json"), []byte(`{}`), 0o600))
+	// WriteFile is subject to umask; force the modes the test asserts on.
+	require.NoError(t, os.Chmod(filepath.Join(azureDir, "config"), 0o644))
+	require.NoError(t, os.Chmod(sub, 0o700))
+
+	t.Setenv("AZURE_CONFIG_DIR", "")
+	_ = os.Unsetenv("AZURE_CONFIG_DIR")
+
+	tmpDir, err := Setup()
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = os.RemoveAll(tmpDir) })
+
+	for path, want := range map[string]os.FileMode{
+		"service_principal_entries.json": 0o600,
+		"config":                         0o644,
+		"msal_token_cache":               0o700,
+		"msal_token_cache/cache.json":    0o600,
+	} {
+		info, err := os.Stat(filepath.Join(tmpDir, path))
+		require.NoError(t, err, path)
+		assert.Equal(t, want, info.Mode().Perm(), "mode of %s", path)
+	}
+}
+
+func TestSetupSkipsDiagnosticDirs(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	azureDir := filepath.Join(home, ".azure")
+	require.NoError(t, os.MkdirAll(filepath.Join(azureDir, "logs", "2026"), 0o700))
+	require.NoError(t, os.MkdirAll(filepath.Join(azureDir, "commands"), 0o700))
+	require.NoError(t, os.WriteFile(filepath.Join(azureDir, "logs", "2026", "az.log"), []byte("noise"), 0o600))
+	require.NoError(t, os.WriteFile(filepath.Join(azureDir, "commands", "cmd.json"), []byte("{}"), 0o600))
+	require.NoError(t, os.WriteFile(filepath.Join(azureDir, "azureProfile.json"), []byte(`{}`), 0o600))
+
+	t.Setenv("AZURE_CONFIG_DIR", "")
+	_ = os.Unsetenv("AZURE_CONFIG_DIR")
+
+	tmpDir, err := Setup()
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = os.RemoveAll(tmpDir) })
+
+	assert.NoFileExists(t, filepath.Join(tmpDir, "logs", "2026", "az.log"))
+	assert.NoDirExists(t, filepath.Join(tmpDir, "logs"))
+	assert.NoDirExists(t, filepath.Join(tmpDir, "commands"))
+	assert.FileExists(t, filepath.Join(tmpDir, "azureProfile.json"))
+}
+
+func TestSetupFollowsSymlinkedFile(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	azureDir := filepath.Join(home, ".azure")
+	require.NoError(t, os.MkdirAll(azureDir, 0o700))
+	// A profile symlinked into a dotfiles repo is a plausible setup.
+	target := filepath.Join(home, "dotfiles-azureProfile.json")
+	require.NoError(t, os.WriteFile(target, []byte(`{"subscriptions":[]}`), 0o600))
+	require.NoError(t, os.Symlink(target, filepath.Join(azureDir, "azureProfile.json")))
+
+	t.Setenv("AZURE_CONFIG_DIR", "")
+	_ = os.Unsetenv("AZURE_CONFIG_DIR")
+
+	tmpDir, err := Setup()
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = os.RemoveAll(tmpDir) })
+
+	copied := filepath.Join(tmpDir, "azureProfile.json")
+	data, err := os.ReadFile(copied)
+	require.NoError(t, err)
+	assert.Equal(t, `{"subscriptions":[]}`, string(data))
+
+	// The copy is a regular file, so writing to it cannot reach the original.
+	info, err := os.Lstat(copied)
+	require.NoError(t, err)
+	assert.Equal(t, os.FileMode(0), info.Mode()&os.ModeSymlink)
+	assert.Equal(t, os.FileMode(0o600), info.Mode().Perm())
+}
+
+func TestSetupCopiesSymlinkedDir(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	azureDir := filepath.Join(home, ".azure")
+	require.NoError(t, os.MkdirAll(azureDir, 0o700))
+	shared := filepath.Join(home, "shared-extensions")
+	require.NoError(t, os.MkdirAll(shared, 0o700))
+	require.NoError(t, os.WriteFile(filepath.Join(shared, "ext.json"), []byte(`{}`), 0o600))
+	require.NoError(t, os.Symlink(shared, filepath.Join(azureDir, "cliextensions")))
+	// A loop must not hang the copy.
+	require.NoError(t, os.Symlink(azureDir, filepath.Join(shared, "loop")))
+
+	t.Setenv("AZURE_CONFIG_DIR", "")
+	_ = os.Unsetenv("AZURE_CONFIG_DIR")
+
+	tmpDir, err := Setup()
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = os.RemoveAll(tmpDir) })
+
+	copied := filepath.Join(tmpDir, "cliextensions", "ext.json")
+	assert.FileExists(t, copied)
+	info, err := os.Lstat(filepath.Join(tmpDir, "cliextensions"))
+	require.NoError(t, err)
+	assert.Equal(t, os.FileMode(0), info.Mode()&os.ModeSymlink, "copied as a real dir")
+}
+
 func TestSpawnShellInheritsConfigDir(t *testing.T) {
 	dir := t.TempDir()
 	outFile := filepath.Join(dir, "out")
