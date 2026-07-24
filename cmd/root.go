@@ -55,6 +55,15 @@ It provides a fuzzy finder interface to select subscriptions and remembers your 
 	Args:          cobra.MaximumNArgs(1),
 	SilenceUsage:  true,
 	SilenceErrors: true,
+	// Cross-flag validation, shared by root and every subcommand.
+	PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
+		// A fresh context is empty, so there is no subscription to select.
+		// Check Changed, not viper, to ignore the exported AZCTX_SUBSCRIPTION.
+		if cmd.Flags().Changed("fresh") && cmd.Flags().Changed("subscription") {
+			return fmt.Errorf("--fresh and --subscription cannot be used together: a fresh context is empty, with no subscription to select")
+		}
+		return nil
+	},
 	RunE: func(cmd *cobra.Command, args []string) error {
 		sweepOrphans()
 

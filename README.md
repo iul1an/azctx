@@ -134,11 +134,15 @@ azctx exec --by-tenant -- kubie ctx my-aks-cluster
 # Skip the picker entirely with --subscription (name or ID, name is
 # case-insensitive). Also works on bare azctx.
 azctx exec --subscription "My Subscription" -- kubectl get pods
+
+# With no command, exec drops into an isolated subshell instead of
+# running something and exiting — so `exec --subscription` is a
+# non-interactive way into a shell, skipping the picker.
+azctx exec --subscription "My Subscription"
 ```
 
-Inside an isolated shell, `azctx exec` without `--subscription` inherits
-that shell's subscription (via `AZCTX_SUBSCRIPTION`) instead of showing
-the picker — the command still runs in its own fresh context.
+Like bare `azctx`, `exec` is refused inside an isolated shell: exit it
+first and re-run. Nesting contexts is confusing and buys nothing.
 
 ### In-Place Mode
 
