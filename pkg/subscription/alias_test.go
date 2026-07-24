@@ -91,6 +91,16 @@ func TestAliasIndex(t *testing.T) {
 	assert.Len(t, idx, 2, "dangling aliases are not indexed")
 }
 
+func TestDanglingAliases(t *testing.T) {
+	sm := lookupTestManager(t)
+	sm.Aliases = Aliases{
+		"prd":  "44444444-4444-4444-4444-444444444444",
+		"gone": "no such subscription",
+		"also": "55555555-5555-5555-5555-555555555555",
+	}
+	assert.Equal(t, []string{"also", "gone"}, sm.DanglingAliases())
+}
+
 func TestAliasesFor(t *testing.T) {
 	sm := lookupTestManager(t)
 	sm.Aliases = Aliases{"prd": "44444444-4444-4444-4444-444444444444"}

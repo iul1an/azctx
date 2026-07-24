@@ -58,6 +58,20 @@ func (sm *Manager) AliasIndex() map[uuid.UUID][]string {
 	return idx
 }
 
+// DanglingAliases returns the sorted aliases whose target matches no
+// subscription. They resolve to an error when used and are absent from the
+// picker, so they are worth surfacing.
+func (sm *Manager) DanglingAliases() []string {
+	var out []string
+	for alias, target := range sm.Aliases {
+		if _, err := sm.lookup(target); err != nil {
+			out = append(out, alias)
+		}
+	}
+	sort.Strings(out)
+	return out
+}
+
 // AliasesFor returns the sorted aliases of a single subscription.
 func (sm *Manager) AliasesFor(id uuid.UUID) []string {
 	return sm.AliasIndex()[id]

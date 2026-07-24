@@ -20,6 +20,17 @@ import (
 
 const tempDirPattern = "azctx.*"
 
+// Logger is the subset of the app logger this package uses. Set via
+// SetLogger, like finder.Configure; nil means no logging.
+type Logger interface {
+	Debug(msg string, args ...interface{})
+}
+
+var log Logger
+
+// SetLogger routes this package's debug output to l.
+func SetLogger(l Logger) { log = l }
+
 // IsActive reports whether the current process is already running inside an
 // azctx isolated context, i.e. AZURE_CONFIG_DIR points at an azctx tempdir.
 func IsActive() bool {
@@ -90,6 +101,9 @@ func Setup() (string, error) {
 		_ = os.RemoveAll(tmpDir)
 		return "", fmt.Errorf("copying %s to isolated config dir: %w", azureDir, err)
 	}
+	if log != nil {
+		log.Debug("context %s copied from %s", tmpDir, azureDir)
+	}
 	return activate(tmpDir)
 }
 
@@ -126,6 +140,9 @@ func copyTree(src, dst string, seen map[string]bool) error {
 			return nil // dst exists and stays 0700 whatever src is
 		}
 		if d.IsDir() && skipDirs[rel] {
+			if log != nil {
+				log.Debug("skipping %s", path)
+			}
 			return filepath.SkipDir
 		}
 		target := filepath.Join(dst, rel)
@@ -182,6 +199,9 @@ func SetupEmpty() (string, error) {
 	tmpDir, err := newContextDir()
 	if err != nil {
 		return "", err
+	}
+	if log != nil {
+		log.Debug("empty context %s", tmpDir)
 	}
 	return activate(tmpDir)
 }

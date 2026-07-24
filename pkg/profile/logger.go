@@ -56,18 +56,32 @@ func (l *DefaultLogger) SetQuiet(q bool) *DefaultLogger {
 }
 
 func NewLogger(level string) *DefaultLogger {
+	parsed := parseLevel(level)
 	logger := log.NewWithOptions(os.Stderr, log.Options{
 		ReportCaller:    true,
 		ReportTimestamp: true,
 		TimeFormat:      time.Kitchen,
 		Prefix:          "azctx",
+		// Without this the logger defaults to InfoLevel and drops every
+		// Debug record, whatever --log-level says.
+		Level: logLevels[parsed],
+		// Skip this package's wrapper methods so the caller is the code
+		// that logged, not logger.go.
+		CallerOffset: 1,
 	})
 
 	return &DefaultLogger{
 		logger: logger,
-		level:  parseLevel(level),
+		level:  parsed,
 		writer: os.Stderr,
 	}
+}
+
+var logLevels = map[LogLevel]log.Level{
+	LevelDebug: log.DebugLevel,
+	LevelInfo:  log.InfoLevel,
+	LevelWarn:  log.WarnLevel,
+	LevelError: log.ErrorLevel,
 }
 
 func parseLevel(level string) LogLevel {

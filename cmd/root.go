@@ -59,6 +59,8 @@ It provides a fuzzy finder interface to select subscriptions and remembers your 
 	SilenceErrors: true,
 	// Cross-flag validation, shared by root and every subcommand.
 	PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
+		isolation.SetLogger(profile.NewLogger(viper.GetString("log-level")))
+
 		// A fresh context is empty, so there is no subscription to select.
 		// Check Changed, not viper, to ignore the exported AZCTX_SUBSCRIPTION.
 		if cmd.Flags().Changed("fresh") && cmd.Flags().Changed("subscription") {
@@ -136,17 +138,33 @@ It provides a fuzzy finder interface to select subscriptions and remembers your 
 func pickContext(args []string) (string, error) {
 	finder.Configure(viper.GetStringSlice("picker.options"), viper.GetBool("picker.preview"))
 
+	logger := profile.NewLogger(viper.GetString("log-level")).SetQuiet(viper.GetBool("quiet"))
+	aliases := configuredAliases()
+	if configFile == "" {
+		logger.Debug("no config file")
+	} else {
+		logger.Debug("config file %s, %d alias(es)", configFile, len(aliases))
+	}
+	if opts := viper.GetStringSlice("picker.options"); len(opts) > 0 {
+		logger.Debug("picker options %v", opts)
+	}
+
 	stateManager := state.NewFileStateManager()
 	storage := storage.FileAdapter{}
 	if err := storage.FetchDefaultPath("azureProfile.json"); err != nil {
 		return "", pkgerrors.ErrFileOperation("fetching default profile path", err)
 	}
+	logger.Debug("profile %s (AZURE_CONFIG_DIR=%q)", storage.Path, os.Getenv("AZURE_CONFIG_DIR"))
 
-	logger := profile.NewLogger(viper.GetString("log-level")).SetQuiet(viper.GetBool("quiet"))
-	aliases := configuredAliases()
 	cfg, err := storage.ReadConfig()
 	if err != nil {
 		return "", pkgerrors.ErrReadingConfiguration(err)
+	}
+	logger.Debug("%d subscription(s) in profile", len(cfg.Subscriptions))
+	for _, alias := range (&subscription.Manager{
+		BaseManager: types.BaseManager{Configuration: cfg}, Aliases: aliases,
+	}).DanglingAliases() {
+		logger.Debug("alias %q points at %q, which matches no subscription", alias, aliases[alias])
 	}
 
 	// setContext switches to the given subscription and records the switch
@@ -170,6 +188,7 @@ func pickContext(args []string) (string, error) {
 		if err != nil {
 			return "", pkgerrors.ErrOperation(fmt.Sprintf("finding subscription %q", query), err)
 		}
+		logger.Debug("%q resolved to %s (%s)", query, sub.Name, sub.ID)
 		return setContext(sub.ID, sub.Name)
 	}
 
@@ -181,6 +200,7 @@ func pickContext(args []string) (string, error) {
 		// If the active profile is already on the most recent pick (e.g.
 		// in-place usage), "-" means the one before it — cd - toggling.
 		// Otherwise "-" re-enters the most recent pick.
+		reason := "re-entering the most recent pick"
 		for _, s := range cfg.Subscriptions {
 			if s.IsDefault && s.ID.String() == targetID {
 				lastID, lastName := stateManager.GetLastContext()
@@ -188,9 +208,11 @@ func pickContext(args []string) (string, error) {
 					return "", pkgerrors.ErrSettingPreviousContext(pkgerrors.ErrNoPreviousContext)
 				}
 				targetID, targetName = lastID, lastName
+				reason = "profile is already on the most recent pick, toggling back"
 				break
 			}
 		}
+		logger.Debug("- resolves to %s (%s): %s", targetName, targetID, reason)
 		id, err := uuid.Parse(targetID)
 		if err != nil {
 			return "", pkgerrors.WrapError("parsing previous subscription ID", err)
@@ -298,6 +320,10 @@ func init() {
 	registerCompletions()
 }
 
+// configFile is the config that was loaded, "" when none was found. Only
+// used for debug output.
+var configFile string
+
 // initConfig loads the config, exiting 1 on any problem with it.
 func initConfig() {
 	if err := loadConfig(); err != nil {
@@ -345,5 +371,6 @@ func loadConfig() error {
 	if err := viper.ReadConfig(bytes.NewReader(data)); err != nil {
 		return fmt.Errorf("reading config %s: %w", path, err)
 	}
+	configFile = path
 	return nil
 }

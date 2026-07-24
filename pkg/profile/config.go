@@ -36,7 +36,6 @@ func (c *ConfigurationAdapter) SelectWithFinder() (*types.Subscription, error) {
 		return nil, pkgerrors.ErrEmptyConfiguration
 	}
 
-	c.logger.Debug("reading azure profile configuration")
 	config, err := c.storage.ReadConfig()
 	if err != nil {
 		c.logger.Error("failed to read configuration: %v", err)
@@ -48,7 +47,7 @@ func (c *ConfigurationAdapter) SelectWithFinder() (*types.Subscription, error) {
 		return nil, pkgerrors.ErrEmptyConfiguration
 	}
 
-	c.logger.Debug("initiating subscription selection with fuzzy finder")
+	c.logger.Debug("picking from %d subscriptions", len(config.Subscriptions))
 	subManager := subscription.Manager{BaseManager: types.BaseManager{Configuration: config}, Aliases: c.aliases}
 	idx, err := subManager.FindSubscriptionIndex()
 	if err != nil {
@@ -74,7 +73,6 @@ func (c *ConfigurationAdapter) SetContext(subscriptionID uuid.UUID) error {
 		return pkgerrors.ErrInvalidSubscriptionID
 	}
 
-	c.logger.Debug("reading configuration to update context")
 	config, err := c.storage.ReadConfig()
 	if err != nil {
 		c.logger.Error("failed to read configuration: %v", err)
@@ -96,17 +94,16 @@ func (c *ConfigurationAdapter) SetContext(subscriptionID uuid.UUID) error {
 	}
 
 	// Now that we know the target exists, safely update the default flags
+	var previous string
 	for i := range config.Subscriptions {
 		if config.Subscriptions[i].IsDefault {
-			c.logger.Debug("clearing default from subscription: %s", config.Subscriptions[i].Name)
+			previous = config.Subscriptions[i].Name
 			config.Subscriptions[i].IsDefault = false
 		}
 	}
-
-	c.logger.Debug("setting new default subscription: %s", config.Subscriptions[targetIndex].Name)
 	config.Subscriptions[targetIndex].IsDefault = true
+	c.logger.Debug("default subscription %q -> %q", previous, config.Subscriptions[targetIndex].Name)
 
-	c.logger.Debug("writing updated configuration")
 	if err := c.storage.WriteConfig(config); err != nil {
 		c.logger.Error("failed to write configuration: %v", err)
 		return pkgerrors.WrapError("writing configuration", err)

@@ -74,11 +74,22 @@ func Sweep() int {
 	}
 	n := 0
 	for _, c := range ctxs {
-		if !c.Alive && !c.Active {
-			if os.RemoveAll(c.Dir) == nil {
-				n++
+		if c.Alive || c.Active {
+			if log != nil {
+				log.Debug("keeping %s (pid %d)", c.Dir, c.PID)
 			}
+			continue
 		}
+		if err := os.RemoveAll(c.Dir); err != nil {
+			if log != nil {
+				log.Debug("could not remove %s: %v", c.Dir, err)
+			}
+			continue
+		}
+		if log != nil {
+			log.Debug("swept %s (pid %d gone)", c.Dir, c.PID)
+		}
+		n++
 	}
 	return n
 }
