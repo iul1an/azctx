@@ -84,7 +84,7 @@ It provides a fuzzy finder interface to select subscriptions and remembers your 
 			if err := storage.FetchDefaultPath("azureProfile.json"); err != nil {
 				return pkgerrors.ErrFileOperation("fetching default profile path", err)
 			}
-			adapter := profile.NewConfigurationAdapter(&storage, profile.NewLogger(viper.GetString("log-level")))
+			adapter := profile.NewConfigurationAdapter(&storage, profile.NewLogger(viper.GetString("log-level")).SetQuiet(viper.GetBool("quiet")))
 			return adapter.ClearContext()
 		}
 
@@ -137,7 +137,7 @@ func pickContext(args []string) (string, error) {
 		return "", pkgerrors.ErrFileOperation("fetching default profile path", err)
 	}
 
-	logger := profile.NewLogger(viper.GetString("log-level"))
+	logger := profile.NewLogger(viper.GetString("log-level")).SetQuiet(viper.GetBool("quiet"))
 	cfg, err := storage.ReadConfig()
 	if err != nil {
 		return "", pkgerrors.ErrReadingConfiguration(err)
@@ -250,6 +250,7 @@ func init() {
 	rootCmd.Flags().Bool("in-place", false, "Mutate the master ~/.azure directly instead of spawning an isolated subshell")
 	rootCmd.Flags().Bool("unset", false, "Clear the default subscription in the master ~/.azure and exit")
 	rootCmd.PersistentFlags().Bool("fresh", false, "Start from an empty Azure config (skip copying ~/.azure, no picker) for ephemeral workflows")
+	rootCmd.PersistentFlags().BoolP("quiet", "q", false, "Suppress the \"switched context to\" confirmation message")
 
 	// Bind flags to viper and check for errors
 	if err := viper.BindPFlag("log-level", rootCmd.PersistentFlags().Lookup("log-level")); err != nil {
@@ -280,6 +281,11 @@ func init() {
 	if err := viper.BindPFlag("fresh", rootCmd.PersistentFlags().Lookup("fresh")); err != nil {
 		logger := profile.NewLogger("error")
 		logger.Error("Failed to bind fresh flag: %v", err)
+		os.Exit(1)
+	}
+	if err := viper.BindPFlag("quiet", rootCmd.PersistentFlags().Lookup("quiet")); err != nil {
+		logger := profile.NewLogger("error")
+		logger.Error("Failed to bind quiet flag: %v", err)
 		os.Exit(1)
 	}
 

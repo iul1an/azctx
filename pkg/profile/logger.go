@@ -45,6 +45,14 @@ type DefaultLogger struct {
 	logger *log.Logger
 	level  LogLevel
 	writer io.Writer
+	quiet  bool
+}
+
+// SetQuiet suppresses Success messages (the context-switch confirmations)
+// when q is true. It returns the logger so it can be chained onto NewLogger.
+func (l *DefaultLogger) SetQuiet(q bool) *DefaultLogger {
+	l.quiet = q
+	return l
 }
 
 func NewLogger(level string) *DefaultLogger {
@@ -100,6 +108,9 @@ func (l *DefaultLogger) Info(msg string, args ...interface{}) {
 }
 
 func (l *DefaultLogger) Success(msg string, args ...interface{}) {
+	if l.quiet {
+		return
+	}
 	if l.level <= LevelInfo {
 		formattedMsg := l.formatMessage(msg, args...)
 		fmt.Println(successStyle.Render(formattedMsg))

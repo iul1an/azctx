@@ -183,6 +183,9 @@ by-tenant: false
 # Always start from an empty config (ephemeral-by-default workflow)
 #fresh: false
 
+# Suppress the "switched context to" confirmation (also -q on the CLI)
+#quiet: false
+
 # Careful with these two as persistent settings:
 # in-place: true makes bare azctx mutate ~/.azure directly;
 # unset: true makes every bare azctx run clear the default and exit.
