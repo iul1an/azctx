@@ -1,7 +1,7 @@
 # Maintainer: Iulian Mandache <25257851+iul1an@users.noreply.github.com>
 
 pkgname=azctx
-pkgver=1.4.1
+pkgver=1.4.2
 pkgrel=1
 pkgdesc="Per-shell isolated Azure subscription contexts"
 arch=('x86_64' 'aarch64')
@@ -12,7 +12,7 @@ makedepends=('go')
 source=("$pkgname-$pkgver.tar.gz::$url/archive/refs/tags/v$pkgver.tar.gz")
 
 # make updatesums
-sha256sums=('f86fe25c10da9521a45f4a9a4607abeba0f00d1286ade368d78cc164137f23f5')
+sha256sums=('0bbc09b4481658593e279e6acb4f00391479558d533c1747a92546ff6ed9e296')
 
 prepare() {
   cd "$pkgname-$pkgver"
