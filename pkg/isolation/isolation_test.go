@@ -172,6 +172,20 @@ func TestSetupCopiesSymlinkedDir(t *testing.T) {
 	assert.Equal(t, os.FileMode(0), info.Mode()&os.ModeSymlink, "copied as a real dir")
 }
 
+func TestSetupDisablesTelemetry(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	require.NoError(t, os.MkdirAll(filepath.Join(home, ".azure"), 0o700))
+	t.Setenv("AZURE_CONFIG_DIR", "")
+	_ = os.Unsetenv("AZURE_CONFIG_DIR")
+	t.Setenv(telemetryEnv, "1")
+
+	tmpDir, err := Setup()
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = os.RemoveAll(tmpDir) })
+	assert.Equal(t, "0", os.Getenv(telemetryEnv), "forced off even if already enabled")
+}
+
 func TestSpawnShellInheritsConfigDir(t *testing.T) {
 	dir := t.TempDir()
 	outFile := filepath.Join(dir, "out")

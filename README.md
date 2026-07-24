@@ -191,6 +191,9 @@ Notes on isolation:
   expire, `az login` inside the subshell only affects that context.
 - `kubelogin`/`kubectl` honor `AZURE_CONFIG_DIR`, so AKS access works
   inside the isolated shell.
+- az telemetry is off inside contexts (`AZURE_CORE_COLLECT_TELEMETRY=0`):
+  its uploader outlives the command and would recreate the context dir
+  after cleanup.
 
 ## Configuration
 

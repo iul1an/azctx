@@ -56,8 +56,18 @@ func activate(tmpDir string) (string, error) {
 		_ = os.RemoveAll(tmpDir)
 		return "", fmt.Errorf("setting AZURE_CONFIG_DIR: %w", err)
 	}
+	// az's telemetry uploader outlives the command and recreates the context
+	// dir to log into it, after azctx has removed it.
+	if err := os.Setenv(telemetryEnv, "0"); err != nil {
+		_ = os.RemoveAll(tmpDir)
+		return "", fmt.Errorf("setting %s: %w", telemetryEnv, err)
+	}
 	return tmpDir, nil
 }
+
+// telemetryEnv is az's [core] collect_telemetry config key in env form
+// (knack maps AZURE_<SECTION>_<OPTION>).
+const telemetryEnv = "AZURE_CORE_COLLECT_TELEMETRY"
 
 // Setup copies ~/.azure into a fresh private tempdir and sets
 // AZURE_CONFIG_DIR to it for this process (and any children it spawns).
