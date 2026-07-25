@@ -13,6 +13,9 @@ import (
 
 type Manager struct {
 	types.BaseManager
+	// Labels names tenants for the picker, by tenant ID; optional. The
+	// profile carries no tenant names, so this is the only source of one.
+	Labels map[uuid.UUID]string
 }
 
 // GetTenants retrieves a list of unique tenants from subscriptions.
@@ -25,11 +28,16 @@ func (tm *Manager) GetTenants() ([]types.Tenant, error) {
 				ID:   sub.TenantID,
 				Name: sub.User.Name,
 			}
-			// Check if we have a custom name for this tenant
-			for _, t := range tm.Configuration.Tenants {
-				if t.ID == sub.TenantID && t.CustomName != "" {
-					tenant.CustomName = t.CustomName
-					break
+			// A configured label wins; the profile's customName is a
+			// fallback that az itself never writes.
+			if label := tm.Labels[sub.TenantID]; label != "" {
+				tenant.CustomName = label
+			} else {
+				for _, t := range tm.Configuration.Tenants {
+					if t.ID == sub.TenantID && t.CustomName != "" {
+						tenant.CustomName = t.CustomName
+						break
+					}
 				}
 			}
 			uniqueTenants[sub.TenantID.String()] = tenant

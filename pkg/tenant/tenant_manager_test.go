@@ -4,6 +4,8 @@ import (
 	"encoding/json"
 	"testing"
 
+	"github.com/google/uuid"
+
 	"github.com/iul1an/azctx/pkg/types"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -24,6 +26,42 @@ func testManager(t *testing.T) *Manager {
 		]
 	}`), &cfg))
 	return &Manager{BaseManager: types.BaseManager{Configuration: &cfg}}
+}
+
+func TestTenantLabels(t *testing.T) {
+	contoso := uuid.MustParse("33333333-3333-3333-3333-333333333333")
+
+	t.Run("a configured label names the tenant", func(t *testing.T) {
+		tm := testManager(t)
+		tm.Labels = map[uuid.UUID]string{contoso: "Contoso"}
+		tenants, err := tm.GetTenants()
+		require.NoError(t, err)
+
+		for _, tn := range tenants {
+			if tn.ID == contoso {
+				assert.Equal(t, "Contoso", tn.CustomName)
+				assert.Equal(t, "Contoso (33333333-3333-3333-3333-333333333333)", tenantDisplay(tn))
+				return
+			}
+		}
+		t.Fatal("tenant not found")
+	})
+
+	t.Run("unlabelled tenants keep the account name", func(t *testing.T) {
+		tm := testManager(t)
+		tm.Labels = map[uuid.UUID]string{contoso: "Contoso"}
+		tenants, err := tm.GetTenants()
+		require.NoError(t, err)
+
+		for _, tn := range tenants {
+			if tn.ID != contoso {
+				assert.Empty(t, tn.CustomName)
+				assert.Equal(t, "u (55555555-5555-5555-5555-555555555555)", tenantDisplay(tn))
+				return
+			}
+		}
+		t.Fatal("tenant not found")
+	})
 }
 
 func TestTenantPreview(t *testing.T) {

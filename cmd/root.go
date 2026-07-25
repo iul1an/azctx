@@ -222,7 +222,10 @@ func pickContext(args []string) (string, error) {
 
 	// Check if tenant selection is requested
 	if viper.GetBool("by-tenant") {
-		tenantManager := tenant.Manager{BaseManager: types.BaseManager{Configuration: cfg}}
+		tenantManager := tenant.Manager{
+			BaseManager: types.BaseManager{Configuration: cfg},
+			Labels:      configuredTenantLabels(),
+		}
 		selectedTenant, err := tenantManager.FindTenantIndex()
 		if err != nil {
 			if errors.Is(err, finder.ErrAbort) {

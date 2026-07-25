@@ -18,6 +18,25 @@ func configuredAliases() subscription.Aliases {
 	return subscription.NewAliases(viper.GetStringMapString("aliases"))
 }
 
+// configuredTenantLabels reads the optional `tenants:` map from the config,
+// keyed by tenant ID so viper's key-lowercasing cannot mangle the label.
+func configuredTenantLabels() map[uuid.UUID]string {
+	raw := viper.GetStringMapString("tenants")
+	if len(raw) == 0 {
+		return nil
+	}
+	labels := make(map[uuid.UUID]string, len(raw))
+	for k, v := range raw {
+		id, err := uuid.Parse(strings.TrimSpace(k))
+		v = strings.TrimSpace(v)
+		if err != nil || v == "" {
+			continue
+		}
+		labels[id] = v
+	}
+	return labels
+}
+
 // aliasIndex maps subscription ID to its sorted aliases, for the display
 // side (list, status, completion).
 func aliasIndex(cfg *types.Configuration) map[uuid.UUID][]string {

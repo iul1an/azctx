@@ -124,6 +124,14 @@ SIGKILL) are removed automatically on the next run.
 azctx --by-tenant
 ```
 
+The profile carries no tenant names, so the picker labels tenants with the
+signed-in account. Name them yourself in the config, keyed by tenant ID:
+
+```yaml
+tenants:
+  33333333-3333-3333-3333-333333333333: "Contoso"
+```
+
 ### Exec Mode
 
 ```sh
@@ -211,6 +219,10 @@ by-tenant: false
 
 # Always select this subscription (alias, name, or ID) — disables the picker
 #subscription: "My Subscription"
+
+# Names for tenants in the --by-tenant picker, keyed by tenant ID
+#tenants:
+#  33333333-3333-3333-3333-333333333333: "Contoso"
 
 # Short aliases for subscriptions (value is a subscription ID or name)
 #aliases:
