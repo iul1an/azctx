@@ -14,9 +14,10 @@ import (
 )
 
 type statusSubscription struct {
-	Name     string `json:"name"`
-	ID       string `json:"id"`
-	TenantID string `json:"tenantId"`
+	Name     string   `json:"name"`
+	ID       string   `json:"id"`
+	TenantID string   `json:"tenantId"`
+	Aliases  []string `json:"aliases,omitempty"`
 }
 
 type statusOutput struct {
@@ -32,7 +33,7 @@ type statusOutput struct {
 var statusCmd = &cobra.Command{
 	Use:           "status",
 	Short:         "Show the current shell's Azure context as JSON",
-	Long:          "Prints the active context as indented JSON. Exits 1 when not inside an azctx isolated shell.",
+	Long:          "Prints the active context as indented JSON. The `isolated` field reports whether you are inside an azctx isolated shell.",
 	Args:          cobra.NoArgs,
 	SilenceUsage:  true,
 	SilenceErrors: true,
@@ -49,9 +50,12 @@ var statusCmd = &cobra.Command{
 		if err != nil {
 			return err
 		}
+		aliases := aliasIndex(cfg)
 		for _, s := range cfg.Subscriptions {
 			if s.IsDefault {
-				out.Subscription = &statusSubscription{Name: s.Name, ID: s.ID.String(), TenantID: s.TenantID.String()}
+				out.Subscription = &statusSubscription{
+					Name: s.Name, ID: s.ID.String(), TenantID: s.TenantID.String(), Aliases: aliases[s.ID],
+				}
 				break
 			}
 		}
@@ -77,10 +81,6 @@ var statusCmd = &cobra.Command{
 			return err
 		}
 		fmt.Println(string(data))
-
-		if !out.Isolated {
-			return ExitCodeError{Code: 1}
-		}
 		return nil
 	},
 }

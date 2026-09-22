@@ -13,6 +13,7 @@ import (
 type ConfigurationAdapter struct {
 	storage StorageAdapter
 	logger  Logger
+	aliases subscription.Aliases
 }
 
 func NewConfigurationAdapter(storage StorageAdapter, logger Logger) *ConfigurationAdapter {
@@ -22,13 +23,19 @@ func NewConfigurationAdapter(storage StorageAdapter, logger Logger) *Configurati
 	}
 }
 
+// WithAliases attaches the user's configured subscription aliases, so the
+// picker can show them.
+func (c *ConfigurationAdapter) WithAliases(aliases subscription.Aliases) *ConfigurationAdapter {
+	c.aliases = aliases
+	return c
+}
+
 func (c *ConfigurationAdapter) SelectWithFinder() (*types.Subscription, error) {
 	if c.storage == nil {
 		c.logger.Error("storage adapter is nil")
 		return nil, pkgerrors.ErrEmptyConfiguration
 	}
 
-	c.logger.Debug("reading azure profile configuration")
 	config, err := c.storage.ReadConfig()
 	if err != nil {
 		c.logger.Error("failed to read configuration: %v", err)
@@ -40,8 +47,8 @@ func (c *ConfigurationAdapter) SelectWithFinder() (*types.Subscription, error) {
 		return nil, pkgerrors.ErrEmptyConfiguration
 	}
 
-	c.logger.Debug("initiating subscription selection with fuzzy finder")
-	subManager := subscription.Manager{BaseManager: types.BaseManager{Configuration: config}}
+	c.logger.Debug("picking from %d subscriptions", len(config.Subscriptions))
+	subManager := subscription.Manager{BaseManager: types.BaseManager{Configuration: config}, Aliases: c.aliases}
 	idx, err := subManager.FindSubscriptionIndex()
 	if err != nil {
 		if errors.Is(err, finder.ErrAbort) {
@@ -66,7 +73,6 @@ func (c *ConfigurationAdapter) SetContext(subscriptionID uuid.UUID) error {
 		return pkgerrors.ErrInvalidSubscriptionID
 	}
 
-	c.logger.Debug("reading configuration to update context")
 	config, err := c.storage.ReadConfig()
 	if err != nil {
 		c.logger.Error("failed to read configuration: %v", err)
@@ -88,17 +94,16 @@ func (c *ConfigurationAdapter) SetContext(subscriptionID uuid.UUID) error {
 	}
 
 	// Now that we know the target exists, safely update the default flags
+	var previous string
 	for i := range config.Subscriptions {
 		if config.Subscriptions[i].IsDefault {
-			c.logger.Debug("clearing default from subscription: %s", config.Subscriptions[i].Name)
+			previous = config.Subscriptions[i].Name
 			config.Subscriptions[i].IsDefault = false
 		}
 	}
-
-	c.logger.Debug("setting new default subscription: %s", config.Subscriptions[targetIndex].Name)
 	config.Subscriptions[targetIndex].IsDefault = true
+	c.logger.Debug("default subscription %q -> %q", previous, config.Subscriptions[targetIndex].Name)
 
-	c.logger.Debug("writing updated configuration")
 	if err := c.storage.WriteConfig(config); err != nil {
 		c.logger.Error("failed to write configuration: %v", err)
 		return pkgerrors.WrapError("writing configuration", err)

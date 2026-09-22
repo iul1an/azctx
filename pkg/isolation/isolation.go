@@ -7,6 +7,8 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
+	"io/fs"
 	"os"
 	"os/exec"
 	"os/signal"
@@ -17,6 +19,17 @@ import (
 )
 
 const tempDirPattern = "azctx.*"
+
+// Logger is the subset of the app logger this package uses. Set via
+// SetLogger, like finder.Configure; nil means no logging.
+type Logger interface {
+	Debug(msg string, args ...interface{})
+}
+
+var log Logger
+
+// SetLogger routes this package's debug output to l.
+func SetLogger(l Logger) { log = l }
 
 // IsActive reports whether the current process is already running inside an
 // azctx isolated context, i.e. AZURE_CONFIG_DIR points at an azctx tempdir.
@@ -54,8 +67,18 @@ func activate(tmpDir string) (string, error) {
 		_ = os.RemoveAll(tmpDir)
 		return "", fmt.Errorf("setting AZURE_CONFIG_DIR: %w", err)
 	}
+	// az's telemetry uploader outlives the command and recreates the context
+	// dir to log into it, after azctx has removed it.
+	if err := os.Setenv(telemetryEnv, "0"); err != nil {
+		_ = os.RemoveAll(tmpDir)
+		return "", fmt.Errorf("setting %s: %w", telemetryEnv, err)
+	}
 	return tmpDir, nil
 }
+
+// telemetryEnv is az's [core] collect_telemetry config key in env form
+// (knack maps AZURE_<SECTION>_<OPTION>).
+const telemetryEnv = "AZURE_CORE_COLLECT_TELEMETRY"
 
 // Setup copies ~/.azure into a fresh private tempdir and sets
 // AZURE_CONFIG_DIR to it for this process (and any children it spawns).
@@ -74,11 +97,99 @@ func Setup() (string, error) {
 	if err != nil {
 		return "", err
 	}
-	if err := os.CopyFS(tmpDir, os.DirFS(azureDir)); err != nil {
+	if err := copyDir(azureDir, tmpDir); err != nil {
 		_ = os.RemoveAll(tmpDir)
 		return "", fmt.Errorf("copying %s to isolated config dir: %w", azureDir, err)
 	}
+	if log != nil {
+		log.Debug("context %s copied from %s", tmpDir, azureDir)
+	}
 	return activate(tmpDir)
+}
+
+// skipDirs are az's write-only diagnostic dirs; logs/ is unbounded.
+var skipDirs = map[string]bool{"logs": true, "commands": true}
+
+// copyDir copies src into dst, carrying file modes across and resolving
+// symlinks into regular files, neither of which os.CopyFS does.
+func copyDir(src, dst string) error {
+	return copyTree(src, dst, map[string]bool{})
+}
+
+// copyTree walks src, recursing into symlinked dirs itself (WalkDir does
+// not); seen holds resolved paths so a symlink loop cannot spin forever.
+func copyTree(src, dst string, seen map[string]bool) error {
+	resolved, err := filepath.EvalSymlinks(src)
+	if err != nil {
+		return err
+	}
+	if seen[resolved] {
+		return nil
+	}
+	seen[resolved] = true
+
+	return filepath.WalkDir(resolved, func(path string, d fs.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+		rel, err := filepath.Rel(resolved, path)
+		if err != nil {
+			return err
+		}
+		if rel == "." {
+			return nil // dst exists and stays 0700 whatever src is
+		}
+		if d.IsDir() && skipDirs[rel] {
+			if log != nil {
+				log.Debug("skipping %s", path)
+			}
+			return filepath.SkipDir
+		}
+		target := filepath.Join(dst, rel)
+
+		info, err := os.Stat(path) // follows symlinks
+		if err != nil {
+			return err
+		}
+		if info.IsDir() {
+			if err := os.MkdirAll(target, info.Mode().Perm()); err != nil {
+				return err
+			}
+			if err := os.Chmod(target, info.Mode().Perm()); err != nil { // MkdirAll honors umask
+				return err
+			}
+			if d.Type()&fs.ModeSymlink != 0 {
+				return copyTree(path, target, seen)
+			}
+			return nil
+		}
+		if !info.Mode().IsRegular() {
+			return nil // sockets and devices carry no state worth copying
+		}
+		return copyFile(path, target, info.Mode().Perm())
+	})
+}
+
+func copyFile(src, dst string, mode fs.FileMode) error {
+	in, err := os.Open(src)
+	if err != nil {
+		return err
+	}
+	defer func() { _ = in.Close() }()
+
+	out, err := os.OpenFile(dst, os.O_WRONLY|os.O_CREATE|os.O_EXCL, mode)
+	if err != nil {
+		return err
+	}
+	if _, err := io.Copy(out, in); err != nil {
+		_ = out.Close()
+		return err
+	}
+	if err := out.Chmod(mode); err != nil { // OpenFile honors umask
+		_ = out.Close()
+		return err
+	}
+	return out.Close()
 }
 
 // SetupEmpty creates a fresh, empty isolated config dir — nothing is copied
@@ -88,6 +199,9 @@ func SetupEmpty() (string, error) {
 	tmpDir, err := newContextDir()
 	if err != nil {
 		return "", err
+	}
+	if log != nil {
+		log.Debug("empty context %s", tmpDir)
 	}
 	return activate(tmpDir)
 }
