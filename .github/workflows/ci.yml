@@ -16,7 +16,7 @@ permissions:
 jobs:
   lint:
     name: Lint
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-go@v7
@@ -29,7 +29,7 @@ jobs:
     strategy:
       matrix:
         # No Windows: per-shell isolation relies on Unix process semantics.
-        os: [ubuntu-latest, macos-latest]
+        os: [ubuntu-26.04, macos-latest]
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v7
@@ -43,7 +43,7 @@ jobs:
 
   govulncheck:
     name: Vulnerability scan
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-go@v7
