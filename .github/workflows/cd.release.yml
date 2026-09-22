@@ -41,3 +41,49 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           HOMEBREW_TAP_TOKEN: ${{ steps.tap-token.outputs.token }}
+
+  pkgbuild:
+    name: "CD: Bump PKGBUILD"
+    needs: goreleaser
+    runs-on: ubuntu-latest
+    container: archlinux:latest
+    # Stable tags only: makepkg rejects a hyphen in pkgver.
+    if: ${{ !contains(github.ref_name, '-') }}
+    permissions:
+      contents: read
+    steps:
+      - name: Install pacman-contrib
+        run: pacman -Sy --noconfirm --needed git github-cli make pacman-contrib
+      - name: Create bump token
+        uses: actions/create-github-app-token@v3
+        id: bump-token
+        with:
+          client-id: ${{ secrets.RELEASER_APP_CLIENT_ID }}
+          private-key: ${{ secrets.RELEASER_APP_PRIVATE_KEY }}
+          owner: iul1an
+          repositories: azctx
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          ref: main
+          fetch-depth: 0
+      - name: Bump PKGBUILD
+        run: |
+          useradd -m ci && chown -R ci .
+          runuser -u ci -- make arch-bump
+      - name: Open bump PR
+        id: pr
+        uses: peter-evans/create-pull-request@5f6978faf089d4d20b00c7766989d076bb2fc7f1 # v8.1.1
+        with:
+          token: ${{ steps.bump-token.outputs.token }}
+          branch: chore/pkgbuild-${{ github.ref_name }}
+          commit-message: "chore: bump PKGBUILD to ${{ github.ref_name }}"
+          title: "chore: bump PKGBUILD to ${{ github.ref_name }}"
+          body: Sync PKGBUILD pkgver and sha256sums to the ${{ github.ref_name }} tag.
+          delete-branch: true
+      - name: Enable auto-merge
+        if: steps.pr.outputs.pull-request-operation == 'created'
+        run: gh pr merge --auto --squash "$PR_URL"
+        env:
+          PR_URL: ${{ steps.pr.outputs.pull-request-url }}
+          GH_TOKEN: ${{ steps.bump-token.outputs.token }}
