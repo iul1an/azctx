@@ -45,21 +45,43 @@ type DefaultLogger struct {
 	logger *log.Logger
 	level  LogLevel
 	writer io.Writer
+	quiet  bool
+}
+
+// SetQuiet suppresses Success messages (the context-switch confirmations)
+// when q is true. It returns the logger so it can be chained onto NewLogger.
+func (l *DefaultLogger) SetQuiet(q bool) *DefaultLogger {
+	l.quiet = q
+	return l
 }
 
 func NewLogger(level string) *DefaultLogger {
+	parsed := parseLevel(level)
 	logger := log.NewWithOptions(os.Stderr, log.Options{
 		ReportCaller:    true,
 		ReportTimestamp: true,
 		TimeFormat:      time.Kitchen,
 		Prefix:          "azctx",
+		// Without this the logger defaults to InfoLevel and drops every
+		// Debug record, whatever --log-level says.
+		Level: logLevels[parsed],
+		// Skip this package's wrapper methods so the caller is the code
+		// that logged, not logger.go.
+		CallerOffset: 1,
 	})
 
 	return &DefaultLogger{
 		logger: logger,
-		level:  parseLevel(level),
+		level:  parsed,
 		writer: os.Stderr,
 	}
+}
+
+var logLevels = map[LogLevel]log.Level{
+	LevelDebug: log.DebugLevel,
+	LevelInfo:  log.InfoLevel,
+	LevelWarn:  log.WarnLevel,
+	LevelError: log.ErrorLevel,
 }
 
 func parseLevel(level string) LogLevel {
@@ -100,6 +122,9 @@ func (l *DefaultLogger) Info(msg string, args ...interface{}) {
 }
 
 func (l *DefaultLogger) Success(msg string, args ...interface{}) {
+	if l.quiet {
+		return
+	}
 	if l.level <= LevelInfo {
 		formattedMsg := l.formatMessage(msg, args...)
 		fmt.Println(successStyle.Render(formattedMsg))

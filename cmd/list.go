@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"strings"
 	"text/tabwriter"
 	"time"
 
@@ -43,10 +44,11 @@ var listCmd = &cobra.Command{
 }
 
 type listSubscriptionEntry struct {
-	Name      string `json:"name"`
-	ID        string `json:"id"`
-	TenantID  string `json:"tenantId"`
-	IsDefault bool   `json:"isDefault"`
+	Name      string   `json:"name"`
+	ID        string   `json:"id"`
+	TenantID  string   `json:"tenantId"`
+	IsDefault bool     `json:"isDefault"`
+	Aliases   []string `json:"aliases,omitempty"`
 }
 
 func listJSON() error {
@@ -72,9 +74,11 @@ func listJSON() error {
 	if out.IsolatedContexts == nil {
 		out.IsolatedContexts = []isolation.Context{}
 	}
+	aliases := aliasIndex(cfg)
 	for _, s := range cfg.Subscriptions {
 		out.Subscriptions = append(out.Subscriptions, listSubscriptionEntry{
 			Name: s.Name, ID: s.ID.String(), TenantID: s.TenantID.String(), IsDefault: s.IsDefault,
+			Aliases: aliases[s.ID],
 		})
 	}
 
@@ -117,12 +121,26 @@ func listSubscriptions() error {
 		fmt.Println("  none")
 		return nil
 	}
+	// The ALIASES column appears only when aliases are configured.
+	aliases := aliasIndex(cfg)
 	w := tabwriter.NewWriter(os.Stdout, 2, 4, 2, ' ', 0)
-	_, _ = fmt.Fprintln(w, " \tNAME\tID\tTENANT")
+	if len(aliases) > 0 {
+		_, _ = fmt.Fprintln(w, " \tNAME\tALIASES\tID\tTENANT")
+	} else {
+		_, _ = fmt.Fprintln(w, " \tNAME\tID\tTENANT")
+	}
 	for _, s := range cfg.Subscriptions {
 		marker := " "
 		if s.IsDefault {
 			marker = "*"
+		}
+		if len(aliases) > 0 {
+			a := "-"
+			if got := aliases[s.ID]; len(got) > 0 {
+				a = strings.Join(got, ",")
+			}
+			_, _ = fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%s\n", marker, s.Name, a, s.ID, s.TenantID)
+			continue
 		}
 		_, _ = fmt.Fprintf(w, "%s\t%s\t%s\t%s\n", marker, s.Name, s.ID, s.TenantID)
 	}

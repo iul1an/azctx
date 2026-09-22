@@ -12,20 +12,37 @@ import (
 
 type Manager struct {
 	types.BaseManager
+	Aliases Aliases // optional, from the user's config
 }
 
-func subscriptionDisplay(s types.Subscription) string {
-	return fmt.Sprintf("%s (%s)", s.Name, s.ID)
-}
-
-func subscriptionPreview(s types.Subscription) string {
-	def := "no"
-	if s.IsDefault {
-		def = "yes"
+// displayFunc renders a picker entry. Aliases are part of the line, so
+// they are fuzzy-matchable.
+func (sm *Manager) displayFunc() func(types.Subscription) string {
+	idx := sm.AliasIndex()
+	return func(s types.Subscription) string {
+		if aliases := idx[s.ID]; len(aliases) > 0 {
+			return fmt.Sprintf("%s [%s] (%s)", s.Name, strings.Join(aliases, ","), s.ID)
+		}
+		return fmt.Sprintf("%s (%s)", s.Name, s.ID)
 	}
-	return fmt.Sprintf(
-		"Name:        %s\nID:          %s\nTenant:      %s\nEnvironment: %s\nState:       %s\nDefault:     %s",
-		s.Name, s.ID, s.TenantID, s.EnvironmentName, s.State, def)
+}
+
+// previewFunc renders the preview pane, with an Aliases row when set.
+func (sm *Manager) previewFunc() func(types.Subscription) string {
+	idx := sm.AliasIndex()
+	return func(s types.Subscription) string {
+		def := "no"
+		if s.IsDefault {
+			def = "yes"
+		}
+		preview := fmt.Sprintf(
+			"Name:        %s\nID:          %s\nTenant:      %s\nEnvironment: %s\nState:       %s\nDefault:     %s",
+			s.Name, s.ID, s.TenantID, s.EnvironmentName, s.State, def)
+		if aliases := idx[s.ID]; len(aliases) > 0 {
+			preview += fmt.Sprintf("\nAliases:     %s", strings.Join(aliases, ", "))
+		}
+		return preview
+	}
 }
 
 // FindSubscriptionIndex uses fuzzy finding to let user select a subscription
@@ -34,7 +51,7 @@ func (sm *Manager) FindSubscriptionIndex() (int, error) {
 		return -1, pkgerrors.ErrSubscriptionNotFound
 	}
 
-	sub, err := finder.FuzzyPreview(sm.Configuration.Subscriptions, subscriptionDisplay, subscriptionPreview)
+	sub, err := finder.FuzzyPreview(sm.Configuration.Subscriptions, sm.displayFunc(), sm.previewFunc())
 	if err != nil {
 		return -1, err
 	}
@@ -49,9 +66,24 @@ func (sm *Manager) FindSubscriptionIndex() (int, error) {
 	return -1, pkgerrors.ErrSubscriptionNotFound
 }
 
-// FindSubscriptionByNameOrID finds a subscription by UUID or by
-// case-insensitive exact name, for non-interactive selection.
+// FindSubscriptionByNameOrID finds a subscription by configured alias, by
+// UUID, or by case-insensitive exact name, for non-interactive selection.
+// An alias wins over a subscription of the same name: it was configured
+// deliberately, so an Azure-side rename should not shadow it.
 func (sm *Manager) FindSubscriptionByNameOrID(query string) (*types.Subscription, error) {
+	if target, ok := sm.Aliases.lookup(query); ok {
+		sub, err := sm.lookup(target)
+		if err != nil {
+			return nil, fmt.Errorf("alias %q points to %q: %w", query, target, err)
+		}
+		return sub, nil
+	}
+	return sm.lookup(query)
+}
+
+// lookup resolves a UUID or exact name, ignoring the alias map, so alias
+// targets never resolve to another alias.
+func (sm *Manager) lookup(query string) (*types.Subscription, error) {
 	if id, err := uuid.Parse(query); err == nil {
 		return sm.FindSubscriptionByID(id)
 	}
@@ -89,5 +121,5 @@ func (sm *Manager) FindSubscriptionIndexByTenant(tenantID uuid.UUID) (*types.Sub
 		return nil, err
 	}
 
-	return finder.FuzzyPreview(subs, subscriptionDisplay, subscriptionPreview)
+	return finder.FuzzyPreview(subs, sm.displayFunc(), sm.previewFunc())
 }

@@ -6,6 +6,7 @@ GO     ?= go
 .DEFAULT_GOAL := help
 
 MAKEPKG_TMP := $(or $(TMPDIR),/tmp)/azctx-makepkg
+PKGDEST ?= $(CURDIR)
 
 .PHONY: help all build install uninstall test lint clean arch-build arch-install arch-bump updatesums clean-arch
 
@@ -50,10 +51,10 @@ lint:
 	golangci-lint run
 
 arch-build:
-	BUILDDIR=$(MAKEPKG_TMP) SRCDEST=$(MAKEPKG_TMP) PKGDEST=$(CURDIR) makepkg -f
+	BUILDDIR=$(MAKEPKG_TMP) SRCDEST=$(MAKEPKG_TMP) PKGDEST=$(PKGDEST) makepkg -f
 
 arch-install:
-	BUILDDIR=$(MAKEPKG_TMP) SRCDEST=$(MAKEPKG_TMP) PKGDEST=$(CURDIR) makepkg -sif
+	BUILDDIR=$(MAKEPKG_TMP) SRCDEST=$(MAKEPKG_TMP) PKGDEST=$(PKGDEST) makepkg -sif
 
 arch-bump:
 	@ver=$$(git describe --tags --abbrev=0 | sed 's/^v//'); \

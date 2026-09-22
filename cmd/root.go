@@ -25,11 +25,13 @@ THE SOFTWARE.
 package cmd
 
 import (
+	"bytes"
 	"errors"
 
 	"fmt"
 	"github.com/google/uuid"
 	"os"
+	"path/filepath"
 	"strings"
 
 	pkgerrors "github.com/iul1an/azctx/pkg/errors"
@@ -55,14 +57,28 @@ It provides a fuzzy finder interface to select subscriptions and remembers your 
 	Args:          cobra.MaximumNArgs(1),
 	SilenceUsage:  true,
 	SilenceErrors: true,
+	// Cross-flag validation, shared by root and every subcommand.
+	PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
+		isolation.SetLogger(profile.NewLogger(viper.GetString("log-level")))
+
+		// A fresh context is empty, so there is no subscription to select.
+		// Check Changed, not viper, to ignore the exported AZCTX_SUBSCRIPTION.
+		if cmd.Flags().Changed("fresh") && cmd.Flags().Changed("subscription") {
+			return fmt.Errorf("--fresh and --subscription cannot be used together: a fresh context is empty, with no subscription to select")
+		}
+		return nil
+	},
 	RunE: func(cmd *cobra.Command, args []string) error {
 		sweepOrphans()
 
-		// An isolated shell is bound to the subscription it was started
-		// with: a re-pick inside it could not update the shell's exported
-		// AZCTX_SUBSCRIPTION, so tools reading it would be lied to. There is
-		// deliberately no override.
+		// Refused inside an isolated shell, with a message per mode.
 		if isolation.IsActive() {
+			// --unset/--in-place would hit the temp copy, not master ~/.azure.
+			if viper.GetBool("unset") || viper.GetBool("in-place") {
+				return fmt.Errorf(
+					"cannot modify the master ~/.azure from inside an azctx isolated shell: this shell is scoped to a temporary copy; exit it first")
+			}
+			// A re-pick can't update the exported AZCTX_SUBSCRIPTION.
 			return fmt.Errorf(
 				"already inside an azctx isolated shell (AZCTX_SUBSCRIPTION=%q); exit it and re-run azctx, or use azctx exec for a one-off command in another context",
 				os.Getenv("AZCTX_SUBSCRIPTION"))
@@ -75,7 +91,7 @@ It provides a fuzzy finder interface to select subscriptions and remembers your 
 			if err := storage.FetchDefaultPath("azureProfile.json"); err != nil {
 				return pkgerrors.ErrFileOperation("fetching default profile path", err)
 			}
-			adapter := profile.NewConfigurationAdapter(&storage, profile.NewLogger(viper.GetString("log-level")))
+			adapter := profile.NewConfigurationAdapter(&storage, profile.NewLogger(viper.GetString("log-level")).SetQuiet(viper.GetBool("quiet")))
 			return adapter.ClearContext()
 		}
 
@@ -122,16 +138,33 @@ It provides a fuzzy finder interface to select subscriptions and remembers your 
 func pickContext(args []string) (string, error) {
 	finder.Configure(viper.GetStringSlice("picker.options"), viper.GetBool("picker.preview"))
 
+	logger := profile.NewLogger(viper.GetString("log-level")).SetQuiet(viper.GetBool("quiet"))
+	aliases := configuredAliases()
+	if configFile == "" {
+		logger.Debug("no config file")
+	} else {
+		logger.Debug("config file %s, %d alias(es)", configFile, len(aliases))
+	}
+	if opts := viper.GetStringSlice("picker.options"); len(opts) > 0 {
+		logger.Debug("picker options %v", opts)
+	}
+
 	stateManager := state.NewFileStateManager()
 	storage := storage.FileAdapter{}
 	if err := storage.FetchDefaultPath("azureProfile.json"); err != nil {
 		return "", pkgerrors.ErrFileOperation("fetching default profile path", err)
 	}
+	logger.Debug("profile %s (AZURE_CONFIG_DIR=%q)", storage.Path, os.Getenv("AZURE_CONFIG_DIR"))
 
-	logger := profile.NewLogger(viper.GetString("log-level"))
 	cfg, err := storage.ReadConfig()
 	if err != nil {
 		return "", pkgerrors.ErrReadingConfiguration(err)
+	}
+	logger.Debug("%d subscription(s) in profile", len(cfg.Subscriptions))
+	for _, alias := range (&subscription.Manager{
+		BaseManager: types.BaseManager{Configuration: cfg}, Aliases: aliases,
+	}).DanglingAliases() {
+		logger.Debug("alias %q points at %q, which matches no subscription", alias, aliases[alias])
 	}
 
 	// setContext switches to the given subscription and records the switch
@@ -150,11 +183,12 @@ func pickContext(args []string) (string, error) {
 
 	// Non-interactive selection by subscription name or ID
 	if query := viper.GetString("subscription"); query != "" {
-		subManager := subscription.Manager{BaseManager: types.BaseManager{Configuration: cfg}}
+		subManager := subscription.Manager{BaseManager: types.BaseManager{Configuration: cfg}, Aliases: aliases}
 		sub, err := subManager.FindSubscriptionByNameOrID(query)
 		if err != nil {
 			return "", pkgerrors.ErrOperation(fmt.Sprintf("finding subscription %q", query), err)
 		}
+		logger.Debug("%q resolved to %s (%s)", query, sub.Name, sub.ID)
 		return setContext(sub.ID, sub.Name)
 	}
 
@@ -166,6 +200,7 @@ func pickContext(args []string) (string, error) {
 		// If the active profile is already on the most recent pick (e.g.
 		// in-place usage), "-" means the one before it — cd - toggling.
 		// Otherwise "-" re-enters the most recent pick.
+		reason := "re-entering the most recent pick"
 		for _, s := range cfg.Subscriptions {
 			if s.IsDefault && s.ID.String() == targetID {
 				lastID, lastName := stateManager.GetLastContext()
@@ -173,9 +208,11 @@ func pickContext(args []string) (string, error) {
 					return "", pkgerrors.ErrSettingPreviousContext(pkgerrors.ErrNoPreviousContext)
 				}
 				targetID, targetName = lastID, lastName
+				reason = "profile is already on the most recent pick, toggling back"
 				break
 			}
 		}
+		logger.Debug("- resolves to %s (%s): %s", targetName, targetID, reason)
 		id, err := uuid.Parse(targetID)
 		if err != nil {
 			return "", pkgerrors.WrapError("parsing previous subscription ID", err)
@@ -185,7 +222,10 @@ func pickContext(args []string) (string, error) {
 
 	// Check if tenant selection is requested
 	if viper.GetBool("by-tenant") {
-		tenantManager := tenant.Manager{BaseManager: types.BaseManager{Configuration: cfg}}
+		tenantManager := tenant.Manager{
+			BaseManager: types.BaseManager{Configuration: cfg},
+			Labels:      configuredTenantLabels(),
+		}
 		selectedTenant, err := tenantManager.FindTenantIndex()
 		if err != nil {
 			if errors.Is(err, finder.ErrAbort) {
@@ -194,7 +234,7 @@ func pickContext(args []string) (string, error) {
 			return "", pkgerrors.ErrTenantOperation("selecting tenant", err)
 		}
 
-		subManager := subscription.Manager{BaseManager: types.BaseManager{Configuration: cfg}}
+		subManager := subscription.Manager{BaseManager: types.BaseManager{Configuration: cfg}, Aliases: aliases}
 		sub, err := subManager.FindSubscriptionIndexByTenant(selectedTenant.ID)
 		if err != nil {
 			if errors.Is(err, finder.ErrAbort) {
@@ -207,7 +247,7 @@ func pickContext(args []string) (string, error) {
 	}
 
 	// Default subscription selection
-	adapter := profile.NewConfigurationAdapter(&storage, logger)
+	adapter := profile.NewConfigurationAdapter(&storage, logger).WithAliases(aliases)
 	sub, err := adapter.SelectWithFinder()
 	if err != nil {
 		if errors.Is(err, finder.ErrAbort) {
@@ -237,10 +277,11 @@ func init() {
 	cobra.OnInitialize(initConfig)
 	rootCmd.PersistentFlags().String("log-level", "info", "Set log level (debug, info, warn, error)")
 	rootCmd.PersistentFlags().Bool("by-tenant", false, "Select tenant before choosing subscription")
-	rootCmd.PersistentFlags().String("subscription", "", "Select subscription by name or ID without the interactive picker")
+	rootCmd.PersistentFlags().String("subscription", "", "Select subscription by configured alias, name, or ID without the interactive picker")
 	rootCmd.Flags().Bool("in-place", false, "Mutate the master ~/.azure directly instead of spawning an isolated subshell")
 	rootCmd.Flags().Bool("unset", false, "Clear the default subscription in the master ~/.azure and exit")
 	rootCmd.PersistentFlags().Bool("fresh", false, "Start from an empty Azure config (skip copying ~/.azure, no picker) for ephemeral workflows")
+	rootCmd.PersistentFlags().BoolP("quiet", "q", false, "Suppress the \"switched context to\" confirmation message")
 
 	// Bind flags to viper and check for errors
 	if err := viper.BindPFlag("log-level", rootCmd.PersistentFlags().Lookup("log-level")); err != nil {
@@ -273,37 +314,66 @@ func init() {
 		logger.Error("Failed to bind fresh flag: %v", err)
 		os.Exit(1)
 	}
+	if err := viper.BindPFlag("quiet", rootCmd.PersistentFlags().Lookup("quiet")); err != nil {
+		logger := profile.NewLogger("error")
+		logger.Error("Failed to bind quiet flag: %v", err)
+		os.Exit(1)
+	}
 
 	registerCompletions()
 }
 
-// initConfig reads in config file and ENV variables if set.
-// It looks for a .azctx.yml file in the user's home directory and creates one if it doesn't exist.
-// The function will exit with status code 1 if there are any errors accessing the home directory
-// or handling the configuration file.
+// configFile is the config that was loaded, "" when none was found. Only
+// used for debug output.
+var configFile string
+
+// initConfig loads the config, exiting 1 on any problem with it.
 func initConfig() {
-	home, err := os.UserHomeDir()
-	if err != nil {
-		logger := profile.NewLogger("error")
-		logger.Error("Failed to get home directory: %v", err)
+	if err := loadConfig(); err != nil {
+		profile.NewLogger("error").Error("%v", err)
 		os.Exit(1)
 	}
+}
 
-	viper.AddConfigPath(home)
+// loadConfig reads ~/.azctx.yml (or AZCTX_CONFIG_FILE) and sets up the
+// AZCTX_* environment. The file is read once here and handed to viper, so
+// validation and viper see the same bytes. It is optional and never created.
+func loadConfig() error {
 	viper.SetConfigType("yml")
-	viper.SetConfigName(".azctx")
 	viper.SetEnvPrefix("AZCTX")
 	viper.SetEnvKeyReplacer(strings.NewReplacer("-", "_", ".", "_"))
 	viper.AutomaticEnv()
 
-	// The config file is optional; only a malformed one is an error.
-	// (Auto-creating it here would snapshot whatever flags were passed on
-	// the first-ever run into permanent config — e.g. `--fresh` forever.)
-	if err := viper.ReadInConfig(); err != nil {
-		if _, ok := err.(viper.ConfigFileNotFoundError); !ok {
-			logger := profile.NewLogger("error")
-			logger.Error("Failed to read config: %v", err)
-			os.Exit(1)
-		}
+	path, err := resolveConfigFile()
+	if err != nil {
+		return err
 	}
+	explicit := path != ""
+	if !explicit {
+		home, err := os.UserHomeDir()
+		if err != nil {
+			return fmt.Errorf("resolving home directory: %w", err)
+		}
+		path = filepath.Join(home, ".azctx.yml")
+	}
+
+	data, err := os.ReadFile(path)
+	if err != nil {
+		// A missing default config is the normal case. Auto-creating it
+		// would snapshot whatever flags the first run passed, e.g.
+		// `--fresh` forever.
+		if os.IsNotExist(err) && !explicit {
+			return nil
+		}
+		return fmt.Errorf("reading config: %w", err)
+	}
+
+	if err := validateAliasKeys(data, path); err != nil {
+		return fmt.Errorf("invalid config: %w", err)
+	}
+	if err := viper.ReadConfig(bytes.NewReader(data)); err != nil {
+		return fmt.Errorf("reading config %s: %w", path, err)
+	}
+	configFile = path
+	return nil
 }
