@@ -45,7 +45,7 @@ homebrew_casks:
       args: [completion]
       shells: [bash, zsh, fish]
     dependencies:
-      - formula: azure-cli
+      - cask: azure-cli
     # The release binaries are unsigned; clear the quarantine bit so
     # Gatekeeper does not block them. Preflight: brew runs the binary
     # for completions before any postflight.
